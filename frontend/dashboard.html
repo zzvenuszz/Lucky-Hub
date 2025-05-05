@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucky Hub - Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="main-layout d-flex" style="min-height:100vh;background:#43B02A;">
+    <!-- Sidebar desktop -->
+    <div class="sidebar bg-white border-end d-flex flex-column align-items-center py-4 d-none d-md-flex" style="min-width:220px;">
+      <div class="sidebar-header mb-4 text-center">
+        <span class="clover fs-2">🍀</span>
+        <span class="luckyhub fs-5 fw-bold">LUCKY HUB</span>
+      </div>
+      <ul class="sidebar-menu nav flex-column w-100 mb-4" style="white-space:nowrap;">
+        <li class="menu-item nav-item active" id="menu-dashboard">
+          <a class="nav-link active d-flex align-items-center gap-2" href="#" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <span style="font-size:1.2em;">🏠</span> Tổng quan
+          </a>
+        </li>
+        <li class="menu-item nav-item" id="menu-update">
+          <a class="nav-link d-flex align-items-center gap-2" href="#" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <span style="font-size:1.2em;">➕</span> Cập nhật chỉ số
+          </a>
+        </li>
+        <li class="menu-item nav-item d-none" id="menu-admin">
+          <a class="nav-link d-flex align-items-center gap-2" href="#" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <span style="font-size:1.2em;">👥</span> Quản lý người dùng
+          </a>
+        </li>
+      </ul>
+      <button id="btn-logout" class="sidebar-logout btn btn-outline-danger mt-auto w-100 d-flex align-items-center justify-content-center gap-2">
+        <span style="font-size:1.2em;">🚪</span> Đăng xuất
+      </button>
+    </div>
+    <!-- Sidebar topbar for mobile -->
+    <div class="sidebar-topbar d-md-none d-flex flex-row align-items-center justify-content-between px-2 py-2 bg-white shadow-sm w-100" style="position:sticky;top:0;z-index:1040;">
+      <div class="d-flex align-items-center gap-3 w-100 justify-content-around">
+        <div class="sidebar-icon-btn text-center" id="menu-dashboard-mobile" style="cursor:pointer;">
+          <div style="font-size:1.7rem;">🏠</div>
+          <div style="font-size:0.85rem;">Tổng quan</div>
+        </div>
+        <div class="sidebar-icon-btn text-center" id="open-update-modal-mobile" style="cursor:pointer;">
+          <div style="font-size:1.7rem;">➕</div>
+          <div style="font-size:0.85rem;">Cập nhật</div>
+        </div>
+        <div class="sidebar-icon-btn text-center d-none" id="menu-admin-mobile" style="cursor:pointer;">
+          <div style="font-size:1.7rem;">👥</div>
+          <div style="font-size:0.85rem;">QL người dùng</div>
+        </div>
+        <div class="sidebar-icon-btn text-center" id="btn-logout-mobile" style="cursor:pointer;">
+          <div style="font-size:1.7rem;">🚪</div>
+          <div style="font-size:0.85rem;">Đăng xuất</div>
+        </div>
+      </div>
+    </div>
+    <!-- End sidebar topbar for mobile -->
+    <div class="main-content flex-grow-1 p-4">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div id="main-title" class="main-title mb-0">Chào mừng bạn đến với trang tổng quan sức khỏe!</div>
+        <button id="open-update-modal" class="btn btn-primary">Cập nhật chỉ số</button>
+      </div>
+      <div id="main-content-area"></div>
+      <!-- Modal cập nhật chỉ số -->
+      <div class="modal fade" id="updateMetricsModal" tabindex="-1" aria-labelledby="updateMetricsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="updateMetricsModalLabel">Cập nhật chỉ số sức khỏe</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="imageInput" class="form-label w-100">
+                  <div id="custom-image-label" class="border border-2 border-primary rounded-3 d-flex flex-column align-items-center justify-content-center py-4 mb-2 bg-light" style="cursor:pointer;transition:box-shadow .2s;">
+                    <span class="icon-camera fs-1 mb-2">📷</span>
+                    <span class="fw-semibold">Chọn hoặc kéo thả ảnh chỉ số</span>
+                    <span class="text-secondary small">(Hỗ trợ .jpg, .png, .jpeg)</span>
+                  </div>
+                </label>
+                <input type="file" id="imageInput" accept="image/*" class="d-none" />
+                <button id="btn-analyze" type="button" class="btn btn-primary btn-lg rounded-pill w-100 mb-2 d-flex align-items-center justify-content-center gap-2" style="font-size:1.15rem;"><span class="icon-ai fs-4">🤖</span> Phân tích chỉ số từ ảnh</button>
+                <div id="imagePreview" style="margin: 10px 0;"></div>
+                <div id="analyzeResult"></div>
+              </div>
+              <form id="metricsForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label for="ngayKiemTra" class="form-label">📅 Ngày kiểm tra</label>
+                    <input name="ngayKiemTra" id="ngayKiemTra" type="date" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="canNang" class="form-label">⚖️ Cân nặng (kg)</label>
+                    <input name="canNang" id="canNang" type="number" step="0.1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="tiLeMoCoThe" class="form-label">🏷️ Tỉ lệ mỡ (%)</label>
+                    <input name="tiLeMoCoThe" id="tiLeMoCoThe" type="number" step="0.1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="luongKhoangChat" class="form-label">🦴 Khoáng chất</label>
+                    <input name="luongKhoangChat" id="luongKhoangChat" type="number" step="0.1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="chiSoNuoc" class="form-label">💧 Nước (%)</label>
+                    <input name="chiSoNuoc" id="chiSoNuoc" type="number" step="0.1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="luongCoBap" class="form-label">💪 Cơ bắp (kg)</label>
+                    <input name="luongCoBap" id="luongCoBap" type="number" step="0.1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="chiSoCanDoi" class="form-label">🧍‍♀️ Cân đối</label>
+                    <input name="chiSoCanDoi" id="chiSoCanDoi" type="number" step="0.1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="nangLuong" class="form-label">🔥 Năng lượng (kcal)</label>
+                    <input name="nangLuong" id="nangLuong" type="number" step="1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="tuoiSinhHoc" class="form-label">⏳ Tuổi sinh học</label>
+                    <input name="tuoiSinhHoc" id="tuoiSinhHoc" type="number" step="1" class="form-control" required />
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label for="moNoiTang" class="form-label">🍔 Mỡ nội tạng</label>
+                    <input name="moNoiTang" id="moNoiTang" type="number" step="0.1" class="form-control" required />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-success w-100 mt-3">Lưu chỉ số</button>
+                <div id="message" class="message text-center mt-2"></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html> 

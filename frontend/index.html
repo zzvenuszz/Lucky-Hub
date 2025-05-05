@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lucky Hub - Đăng nhập/Đăng ký</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+  <div class="auth-bg d-flex align-items-center justify-content-center min-vh-100" style="background:#f8f9fa;">
+    <div class="auth-container card shadow p-4" style="min-width:340px;max-width:400px;width:100%;">
+      <div class="auth-title text-center mb-3" style="width:100%;max-width:100%;display:flex;align-items:center;justify-content:center;gap:2px;">
+        <span class="clover fs-1" style="font-size:3rem;">🍀</span>
+        <span class="luckyhub fw-bold" style="font-size:2.3rem;letter-spacing:2px;display:inline-block;width:auto;line-height:1;">LUCKY HUB</span>
+      </div>
+      <!-- Bootstrap nav-tabs -->
+      <ul class="nav nav-tabs justify-content-center mb-3" id="authTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-pane" type="button" role="tab" aria-controls="login-pane" aria-selected="true">Đăng nhập</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register-pane" type="button" role="tab" aria-controls="register-pane" aria-selected="false">Đăng ký</button>
+        </li>
+      </ul>
+      <div class="tab-content" id="authTabContent">
+        <div class="tab-pane fade show active" id="login-pane" role="tabpanel" aria-labelledby="login-tab">
+          <form id="loginForm" class="auth-form text-center" autocomplete="off" style="max-width:100%;gap:10px;">
+            <div class="input-group mb-2">
+              <input name="username" type="text" class="form-control text-center" placeholder="Tên đăng nhập" required 
+                pattern="[A-Za-z0-9]{3,20}" title="Chỉ nhập chữ cái và số, 3-20 ký tự" autocomplete="username"
+                oninput="this.setCustomValidity('');" 
+                oninvalid="this.setCustomValidity('Vui lòng nhập tên đăng nhập hợp lệ (chỉ chữ cái và số, 3-20 ký tự)')" />
+            </div>
+            <div class="input-group mb-2 w-100">
+              <input name="password" type="password" class="form-control text-center" placeholder="Mật khẩu" required 
+                minlength="6" maxlength="32"
+                oninput="this.setCustomValidity('');" 
+                oninvalid="this.setCustomValidity('Vui lòng nhập mật khẩu (tối thiểu 6 ký tự)')" />
+              <button class="btn btn-outline-secondary toggle-password" type="button" tabindex="-1">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+            <button type="submit" class="btn btn-success w-100">Đăng nhập</button>
+          </form>
+        </div>
+        <div class="tab-pane fade" id="register-pane" role="tabpanel" aria-labelledby="register-tab">
+          <form id="registerForm" class="auth-form" autocomplete="off" style="max-width:100%;gap:10px;">
+            <input name="username" type="text" class="form-control mb-2 text-center" placeholder="Tên đăng nhập" required 
+              pattern="[A-Za-z0-9]{3,20}" title="Chỉ nhập chữ cái và số, 3-20 ký tự" autocomplete="username"
+              oninput="this.setCustomValidity('');" 
+              oninvalid="this.setCustomValidity('Vui lòng nhập tên đăng nhập hợp lệ (chỉ chữ cái và số, 3-20 ký tự)')" />
+            <div class="input-group mb-2">
+              <input name="password" type="password" class="form-control" placeholder="Mật khẩu" required 
+                minlength="6" maxlength="32"
+                oninput="this.setCustomValidity('');" 
+                oninvalid="this.setCustomValidity('Vui lòng nhập mật khẩu (tối thiểu 6 ký tự)')" />
+              <button class="btn btn-outline-secondary toggle-password" type="button" tabindex="-1">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+            <input name="fullname" type="text" class="form-control mb-2" placeholder="Họ và tên" required 
+              oninput="this.setCustomValidity('');" 
+              oninvalid="this.setCustomValidity('Vui lòng nhập họ và tên')" />
+            <input name="birthday" type="date" class="form-control mb-2" placeholder="Ngày sinh" required 
+              oninput="this.setCustomValidity('');" 
+              oninvalid="this.setCustomValidity('Vui lòng nhập ngày sinh')" />
+            <input name="height" type="number" class="form-control mb-2" placeholder="Chiều cao (cm)" required min="50" max="250"
+              oninput="this.setCustomValidity('');" 
+              oninvalid="this.setCustomValidity('Vui lòng nhập chiều cao hợp lệ (50-250 cm)')" />
+            <div class="input-group mb-2">
+              <select name="gender" class="form-select" required 
+                oninput="this.setCustomValidity('');" 
+                oninvalid="this.setCustomValidity('Vui lòng chọn giới tính')">
+                <option value="">Giới tính</option>
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Đăng ký</button>
+          </form>
+        </div>
+      </div>
+      <div id="message" class="message text-center mt-2"></div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html> 

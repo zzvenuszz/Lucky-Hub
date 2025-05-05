@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cập nhật chỉ số sức khỏe</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-bg">
+    <div class="auth-container" style="min-width: 400px; max-width: 98vw;">
+      <div class="auth-title">
+        <span class="clover">🍀</span>
+        <span class="luckyhub">LUCKY HUB</span>
+      </div>
+      <h2>Cập nhật chỉ số sức khỏe</h2>
+      <form id="metricsForm" class="auth-form">
+        <input name="ngayKiemTra" type="date" required />
+        <input name="canNang" type="number" step="0.1" placeholder="Cân nặng (kg)" required />
+        <input name="tiLeMoCoThe" type="number" step="0.1" placeholder="Tỉ lệ mỡ cơ thể (%)" required />
+        <input name="luongKhoangChat" type="number" step="0.1" placeholder="Lượng khoáng chất" required />
+        <input name="chiSoNuoc" type="number" step="0.1" placeholder="Chỉ số nước (%)" required />
+        <input name="luongCoBap" type="number" step="0.1" placeholder="Lượng cơ bắp (kg)" required />
+        <input name="chiSoCanDoi" type="number" step="0.1" placeholder="Chỉ số cân đối" required />
+        <input name="nangLuong" type="number" step="1" placeholder="Năng lượng (kcal)" required />
+        <input name="tuoiSinhHoc" type="number" step="1" placeholder="Tuổi sinh học" required />
+        <input name="moNoiTang" type="number" step="0.1" placeholder="Mỡ nội tạng" required />
+        <button type="submit">Lưu chỉ số</button>
+      </form>
+      <div class="dashboard-actions">
+        <button id="btn-upload">Tải ảnh sổ chỉ số</button>
+        <button id="btn-dashboard">Về trang tổng quan</button>
+      </div>
+      <div id="message" class="message"></div>
+    </div>
+  </div>
+  <script src="update-metrics.js"></script>
+</body>
+</html> 
