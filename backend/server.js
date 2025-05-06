@@ -27,7 +27,8 @@ const groupSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   description: String,
   permissions: {
-    note: { type: Boolean, default: false }
+    note: { type: Boolean, default: false },
+    message: { type: Boolean, default: false }
   }
 });
 const Group = mongoose.model('Group', groupSchema);
@@ -64,6 +65,16 @@ const bodyMetricSchema = new mongoose.Schema({
 });
 const BodyMetric = mongoose.model('BodyMetric', bodyMetricSchema);
 
+// Model tin nhắn giữa người dùng
+const messageSchema = new mongoose.Schema({
+  from: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content: { type: String, required: true },
+  image: { type: String }, // base64 hoặc url ảnh, optional
+  createdAt: { type: Date, default: Date.now }
+});
+const Message = mongoose.model('Message', messageSchema);
+
 // Middleware xác thực đơn giản (giả lập, cần thay bằng JWT/session thực tế)
 function auth(req, res, next) {
   const userId = req.headers['x-user-id'];
@@ -84,8 +95,8 @@ async function adminOnly(req, res, next) {
   next();
 }
 
-// Khi khởi động, đảm bảo có 2 group mặc định
-async function ensureDefaultGroups() {
+// Khi khởi động, đảm bảo có 2 group mặc định và user HLV AI
+async function ensureDefaultGroupsAndHLVAI() {
   const adminGroup = await Group.findOneAndUpdate(
     { name: 'Quản trị viên' },
     { name: 'Quản trị viên', description: 'Quản trị hệ thống' },
@@ -96,8 +107,22 @@ async function ensureDefaultGroups() {
     { name: 'Hội viên', description: 'Người dùng thông thường' },
     { upsert: true, new: true }
   );
+  // Tạo user HLV AI nếu chưa có
+  let hlvai = await User.findOne({ username: 'hlvai' });
+  if (!hlvai) {
+    hlvai = new User({
+      username: 'hlvai',
+      password: 'hlvai', // Không dùng để đăng nhập
+      fullname: 'HLV AI',
+      birthday: new Date('2000-01-01'),
+      height: 170,
+      gender: 'Khác',
+      group: adminGroup ? adminGroup._id : undefined
+    });
+    await hlvai.save();
+    console.log('Đã tạo user HLV AI');
+  }
 }
-ensureDefaultGroups();
 
 // Đăng ký
 app.post('/dangky', async (req, res) => {
@@ -383,6 +408,146 @@ app.delete('/admin/groups/:id', auth, adminOnly, async (req, res) => {
   await Group.findByIdAndDelete(req.params.id);
   res.json({ message: 'Đã xóa group.' });
 });
+
+// API lấy danh sách người dùng có thể chat
+app.get('/api/chat/users', auth, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.userId).populate('group');
+    if (!currentUser) return res.status(401).json({ message: 'Không tìm thấy user.' });
+    let users = [];
+    if (currentUser.group && (currentUser.group.name === 'Quản trị viên' || currentUser.group.permissions?.message)) {
+      // Quản trị viên hoặc user có quyền nhắn tin: lấy tất cả user khác có quyền nhắn tin hoặc là quản trị viên hoặc là hội viên
+      users = await User.find().populate('group');
+      users = users.filter(u => u._id.toString() !== req.userId && (u.group?.name === 'Quản trị viên' || u.group?.permissions?.message || u.group?.name === 'Hội viên'));
+    } else if (currentUser.group && currentUser.group.name === 'Hội viên') {
+      // Hội viên chỉ được chat với quản trị viên hoặc user có quyền nhắn tin, không được chat với hội viên khác
+      users = await User.find().populate('group');
+      users = users.filter(u => u._id.toString() !== req.userId && (u.group?.name === 'Quản trị viên' || u.group?.permissions?.message));
+    }
+    res.json(users.map(u => ({ _id: u._id, fullname: u.fullname, username: u.username, group: u.group?.name })));
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách user chat.' });
+  }
+});
+
+// API gửi tin nhắn
+app.post('/api/chat/send', auth, async (req, res) => {
+  try {
+    const { to, content } = req.body;
+    if (!to || !content) return res.status(400).json({ message: 'Thiếu thông tin.' });
+    const fromUser = await User.findById(req.userId).populate('group');
+    const toUser = await User.findById(to).populate('group');
+    if (!fromUser || !toUser) return res.status(400).json({ message: 'Người gửi hoặc người nhận không tồn tại.' });
+    // Nếu người gửi là hội viên và người nhận cũng là hội viên, chặn
+    if (fromUser.group?.name === 'Hội viên' && toUser.group?.name === 'Hội viên') {
+      return res.status(403).json({ message: 'Hội viên không thể nhắn tin với hội viên khác.' });
+    }
+    const msg = new Message({ from: req.userId, to, content });
+    await msg.save();
+    res.json({ message: 'Đã gửi tin nhắn.', msg });
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi gửi tin nhắn.' });
+  }
+});
+
+// API lấy lịch sử chat giữa hai người (bao gồm cả tin nhắn từ HLV AI nếu có)
+app.get('/api/chat/history/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Lấy userId của HLV AI
+    const hlvaiUser = await User.findOne({ username: 'hlvai' });
+    const hlvaiId = hlvaiUser ? hlvaiUser._id.toString() : null;
+    // Lấy tất cả tin nhắn giữa req.userId, userId và hlvai
+    const ids = [req.userId, userId];
+    if (hlvaiId) ids.push(hlvaiId);
+    const messages = await Message.find({
+      $or: [
+        // Tin nhắn giữa 2 user bất kỳ
+        { from: req.userId, to: userId },
+        { from: userId, to: req.userId },
+        // Tin nhắn từ HLV AI đến 2 user này
+        hlvaiId ? { from: hlvaiId, to: req.userId } : {},
+        hlvaiId ? { from: hlvaiId, to: userId } : {},
+        // Tin nhắn gửi ảnh bữa ăn từ hội viên
+        { from: req.userId, to: userId, image: { $exists: true, $ne: null } },
+        { from: userId, to: req.userId, image: { $exists: true, $ne: null } }
+      ]
+    }).sort({ createdAt: 1 }).lean();
+    // Lấy danh sách userId -> fullname
+    const userIds = [...new Set(messages.map(m => m.from.toString()))];
+    const users = await User.find({ _id: { $in: userIds } });
+    const userMap = {};
+    users.forEach(u => { userMap[u._id.toString()] = u.fullname; });
+    messages.forEach(m => { m.from_fullname = userMap[m.from.toString()] || ''; });
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy lịch sử chat.' });
+  }
+});
+
+// API gửi ảnh bữa ăn, nhận tư vấn từ Gemini và lưu vào chat nhóm (hội viên, quản trị viên, HLV AI)
+app.post('/api/chat/send-meal', auth, async (req, res) => {
+  try {
+    const { to, imageBase64 } = req.body;
+    if (!to || !imageBase64) return res.status(400).json({ message: 'Thiếu thông tin.' });
+    const fromUser = await User.findById(req.userId).populate('group');
+    const toUser = await User.findById(to).populate('group');
+    if (!fromUser || !toUser) return res.status(400).json({ message: 'Người gửi hoặc người nhận không tồn tại.' });
+    // Nếu người gửi là hội viên và người nhận cũng là hội viên, chặn
+    if (fromUser.group?.name === 'Hội viên' && toUser.group?.name === 'Hội viên') {
+      return res.status(403).json({ message: 'Hội viên không thể nhắn tin với hội viên khác.' });
+    }
+    // 1. Lưu tin nhắn ảnh vào chat
+    const mealMsg = new Message({ from: req.userId, to, content: '[Hình ảnh bữa ăn]', image: imageBase64 });
+    await mealMsg.save();
+    // 2. Lấy chỉ số cơ thể mới nhất của hội viên
+    const latestMetric = await BodyMetric.findOne({ userId: req.userId }).sort({ ngayKiemTra: -1 });
+    let metricsText = '';
+    if (latestMetric) {
+      metricsText = `Cân nặng: ${latestMetric.canNang ?? '-'}, Tỉ lệ mỡ: ${latestMetric.tiLeMoCoThe ?? '-'}, Khoáng chất: ${latestMetric.luongKhoangChat ?? '-'}, Nước: ${latestMetric.chiSoNuoc ?? '-'}, Cơ bắp: ${latestMetric.luongCoBap ?? '-'}, Cân đối: ${latestMetric.chiSoCanDoi ?? '-'}, Năng lượng: ${latestMetric.nangLuong ?? '-'}, Tuổi sinh học: ${latestMetric.tuoiSinhHoc ?? '-'}, Mỡ nội tạng: ${latestMetric.moNoiTang ?? '-'}`;
+    }
+    // 3. Gửi ảnh + prompt cho Gemini
+    const prompt = `đây là bữa ăn của ${fromUser.fullname} với các chỉ số cơ thể như sau: ${metricsText}. Hãy phân tích bữa ăn và tư vấn cách ăn hợp lý. Trả lời ngắn gọn, đơn giản, dễ hiểu cho người bình thường.`;
+    const base64 = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
+    let geminiReply = '';
+    try {
+      const geminiRes = await axios.post(
+        `${process.env.GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`,
+        {
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                { inlineData: { mimeType: "image/png", data: base64 } }
+              ]
+            }
+          ]
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      geminiReply = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || JSON.stringify(geminiRes.data);
+    } catch (err) {
+      geminiReply = 'Lỗi khi phân tích bữa ăn với AI.';
+    }
+    // 4. Lưu tin nhắn tư vấn từ HLV AI vào chat (from: userId của hlvai)
+    const hlvaiUser = await User.findOne({ username: 'hlvai' });
+    if (hlvaiUser) {
+      const aiMsg = new Message({ from: hlvaiUser._id, to: req.userId, content: geminiReply });
+      await aiMsg.save();
+      // Gửi cho cả quản trị viên nếu đang chat với admin
+      if (toUser.group?.name === 'Quản trị viên') {
+        const aiMsgToAdmin = new Message({ from: hlvaiUser._id, to: toUser._id, content: geminiReply });
+        await aiMsgToAdmin.save();
+      }
+    }
+    res.json({ message: 'Đã gửi bữa ăn và nhận tư vấn.', mealMsg, aiReply: geminiReply });
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi gửi bữa ăn.' });
+  }
+});
+
+// Gọi hàm này khi khởi động server
+ensureDefaultGroupsAndHLVAI();
 
 // Khởi động server
 const PORT = 3001;

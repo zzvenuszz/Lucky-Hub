@@ -513,6 +513,7 @@ function renderAdminPanel() {
               <div class="mb-3">
                 <label class="form-label">Quyền</label><br>
                 <input type="checkbox" id="groupNotePermission" /> <label for="groupNotePermission">Ghi chú</label>
+                <input type="checkbox" id="groupMessagePermission" style="margin-left:12px" /> <label for="groupMessagePermission">Nhắn tin</label>
               </div>
               <button type="submit" class="btn btn-primary">Lưu</button>
             </form>
@@ -750,12 +751,14 @@ function openGroupModal(id, groups) {
     document.getElementById('groupDesc').value = group.description || '';
     const perms = group.permissions || {};
     document.getElementById('groupNotePermission').checked = !!perms.note;
+    document.getElementById('groupMessagePermission').checked = !!perms.message;
     document.getElementById('groupModalLabel').innerText = 'Sửa nhóm';
   } else {
     document.getElementById('groupId').value = '';
     document.getElementById('groupName').value = '';
     document.getElementById('groupDesc').value = '';
     document.getElementById('groupNotePermission').checked = false;
+    document.getElementById('groupMessagePermission').checked = false;
     document.getElementById('groupModalLabel').innerText = 'Thêm nhóm';
   }
   form.onsubmit = async e => {
@@ -764,17 +767,18 @@ function openGroupModal(id, groups) {
     const name = document.getElementById('groupName').value;
     const description = document.getElementById('groupDesc').value;
     const note = document.getElementById('groupNotePermission').checked;
+    const message = document.getElementById('groupMessagePermission').checked;
     if (id) {
       await fetch(`/admin/groups/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({ name, description, permissions: { note } })
+        body: JSON.stringify({ name, description, permissions: { note, message } })
       });
     } else {
       await fetch('/admin/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
-        body: JSON.stringify({ name, description, permissions: { note } })
+        body: JSON.stringify({ name, description, permissions: { note, message } })
       });
     }
     modal.hide();
@@ -1394,6 +1398,187 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
+
+  // Thêm nút mở chat cho người có quyền nhắn tin, quản trị viên hoặc hội viên
+  if (userGroup === 'Quản trị viên' || userGroup === 'Hội viên' || localStorage.getItem('canMessage') === 'true') {
+    let chatBtn = document.getElementById('open-chat-btn');
+    if (!chatBtn) {
+      chatBtn = document.createElement('button');
+      chatBtn.id = 'open-chat-btn';
+      chatBtn.className = 'btn btn-success position-fixed';
+      chatBtn.style = 'bottom:24px;right:24px;z-index:9999';
+      chatBtn.innerHTML = '💬';
+      document.body.appendChild(chatBtn);
+      chatBtn.onclick = openChatModal;
+    }
+  }
+
+  // Modal chat (tạo nếu chưa có)
+  function ensureChatModal() {
+    if (!document.getElementById('chatModal')) {
+      const modalDiv = document.createElement('div');
+      modalDiv.innerHTML = `
+        <div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="chatModalLabel">Chat với quản trị viên/nhóm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div id="chat-user-list" style="margin-bottom:12px"></div>
+                <div id="chat-history" style="height:260px;overflow-y:auto;background:#f8f9fa;padding:8px 4px;margin-bottom:8px;border-radius:6px"></div>
+                <div class="input-group">
+                  <input type="text" id="chat-input" class="form-control" placeholder="Nhập tin nhắn..." />
+                  <input type="file" id="chat-image-input" accept="image/*" style="display:none" />
+                  <button class="btn btn-outline-secondary" id="chat-image-btn" type="button" title="Chọn ảnh"><span style="font-size:1.2em">🖼️</span></button>
+                  <button class="btn btn-primary" id="chat-send-btn">➤</button>
+                </div>
+                <div id="chat-image-preview" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modalDiv);
+    }
+  }
+
+  let currentChatUserId = null;
+
+  async function openChatModal() {
+    ensureChatModal();
+    const modal = new bootstrap.Modal(document.getElementById('chatModal'));
+    document.getElementById('chat-history').innerHTML = '';
+    document.getElementById('chat-input').value = '';
+    // Lấy danh sách user có thể chat
+    const res = await fetch('/api/chat/users', { headers: { 'x-user-id': userId } });
+    const users = await res.json();
+    const userListDiv = document.getElementById('chat-user-list');
+    userListDiv.innerHTML = users
+      .filter(u => u.group !== 'Hội viên' && u.fullname !== 'HLV AI') // Ẩn hội viên và HLV AI khỏi danh sách chat
+      .map(u => `<button class="btn btn-outline-secondary btn-sm m-1${currentChatUserId === u._id ? ' active-chat-user' : ''}" data-id="${u._id}">${u.fullname} (${u.group})</button>`)
+      .join('');
+    userListDiv.querySelectorAll('button').forEach(btn => {
+      btn.onclick = () => {
+        currentChatUserId = btn.getAttribute('data-id');
+        // Cập nhật lại màu sắc nút
+        userListDiv.querySelectorAll('button').forEach(b => b.classList.remove('active-chat-user', 'btn-primary'));
+        btn.classList.add('active-chat-user', 'btn-primary');
+        loadChatHistory();
+      };
+      // Nếu là người đang chat thì tô màu luôn khi render
+      if (btn.getAttribute('data-id') === currentChatUserId) {
+        btn.classList.add('active-chat-user', 'btn-primary');
+      }
+    });
+    // Gửi tin nhắn
+    document.getElementById('chat-send-btn').onclick = sendChatMessage;
+    document.getElementById('chat-input').onkeydown = e => { if (e.key === 'Enter') sendChatMessage(); };
+    // Đảm bảo gán lại sự kiện cho nút chọn ảnh mỗi lần mở modal
+    const chatImageBtn = document.getElementById('chat-image-btn');
+    if (chatImageBtn) {
+      chatImageBtn.onclick = function() {
+        if (!currentChatUserId) {
+          alert('Vui lòng chọn người nhận trước khi gửi ảnh!');
+          return;
+        }
+        document.getElementById('chat-image-input').click();
+      };
+    }
+    // Xử lý hiển thị ảnh đã chọn
+    const chatImageInput = document.getElementById('chat-image-input');
+    const chatImagePreview = document.getElementById('chat-image-preview');
+    chatImageInput.onchange = function() {
+      const file = chatImageInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        selectedImageBase64 = e.target.result;
+        chatImagePreview.innerHTML = `<img src='${selectedImageBase64}' style='max-width:100px;max-height:100px;border-radius:8px;border:1px solid #ccc;'>`;
+      };
+      reader.readAsDataURL(file);
+    };
+    // Khi đóng modal chat, reset preview
+    document.getElementById('chatModal').addEventListener('hidden.bs.modal', function() {
+      chatImagePreview.innerHTML = '';
+      selectedImageBase64 = null;
+      chatImageInput.value = '';
+    });
+    modal.show();
+  }
+
+  async function loadChatHistory() {
+    if (!currentChatUserId) return;
+    const res = await fetch(`/api/chat/history/${currentChatUserId}`, { headers: { 'x-user-id': userId } });
+    const messages = await res.json();
+    const chatDiv = document.getElementById('chat-history');
+    chatDiv.innerHTML = messages.map(m => {
+      // Hiển thị ảnh nếu có
+      if (m.image) {
+        return `<div style="text-align:${m.from === userId ? 'right' : (m.from_fullname === 'HLV AI' ? 'center' : 'left')}"><span class="badge bg-${m.from === userId ? 'success' : (m.from_fullname === 'HLV AI' ? 'info' : 'secondary')}">` +
+          `<img src="${m.image}" alt="bữa ăn" style="max-width:120px;max-height:120px;border-radius:8px;display:block;margin:4px auto">` +
+          `</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
+      }
+      // Hiển thị tin nhắn từ HLV AI
+      if (m.from_fullname === 'HLV AI') {
+        return `<div style="text-align:center"><span class="badge bg-info" style="white-space:pre-line;word-break:break-word;max-width:90vw;display:inline-block;">🤖 <b>HLV AI</b>: ${m.content}</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
+      }
+      // Tin nhắn thường
+      return `<div style="text-align:${m.from === userId ? 'right' : 'left'}"><span class="badge bg-${m.from === userId ? 'success' : 'secondary'}">${m.content}</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
+    }).join('<hr style="margin:2px 0">');
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+  }
+
+  async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const chatImagePreview = document.getElementById('chat-image-preview');
+    const content = input.value.trim();
+    if (!currentChatUserId) {
+      alert('Vui lòng chọn người nhận trước khi gửi tin nhắn!');
+      return;
+    }
+    if (!content && !selectedImageBase64) return;
+    // Hiển thị trạng thái gửi
+    const chatDiv = document.getElementById('chat-history');
+    let sendingMsgId = null;
+    if (selectedImageBase64) {
+      sendingMsgId = 'sending-' + Date.now();
+      chatDiv.innerHTML += `<div id='${sendingMsgId}' style='text-align:right;opacity:0.6'><span class='badge bg-success'><img src='${selectedImageBase64}' style='max-width:100px;max-height:100px;border-radius:8px;vertical-align:middle;'> Đang gửi...</span></div>`;
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+      // Gửi ảnh bữa ăn
+      await fetch('/api/chat/send-meal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ to: currentChatUserId, imageBase64: selectedImageBase64 })
+      });
+      // Đã gửi
+      const sendingDiv = document.getElementById(sendingMsgId);
+      if (sendingDiv) sendingDiv.innerHTML = `<span class='badge bg-success'><img src='${selectedImageBase64}' style='max-width:100px;max-height:100px;border-radius:8px;vertical-align:middle;'> Đã gửi</span>`;
+      chatImagePreview.innerHTML = '';
+      selectedImageBase64 = null;
+      document.getElementById('chat-image-input').value = '';
+    }
+    if (content) {
+      sendingMsgId = 'sending-' + Date.now();
+      chatDiv.innerHTML += `<div id='${sendingMsgId}' style='text-align:right;opacity:0.6'><span class='badge bg-success'>${content} Đang gửi...</span></div>`;
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+      await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ to: currentChatUserId, content })
+      });
+      const sendingDiv = document.getElementById(sendingMsgId);
+      if (sendingDiv) sendingDiv.innerHTML = `<span class='badge bg-success'>${content} Đã gửi</span>`;
+    }
+    input.value = '';
+    setTimeout(loadChatHistory, 600);
+  }
+
+  // Thêm sự kiện cho nút chọn ảnh
+  document.getElementById('chat-image-btn').onclick = function() {
+    document.getElementById('chat-image-input').click();
+  };
 });
 
 // Mặc định hiển thị dashboard
@@ -1428,4 +1613,13 @@ window.addEventListener('resize', () => {
         tableDiv.innerHTML = renderUserMetricsTable(data, window.innerWidth);
       });
   }
-}); 
+});
+
+// Thêm CSS cho .active-chat-user
+(function addChatUserActiveStyle() {
+  const style = document.createElement('style');
+  style.innerHTML = `.active-chat-user { background: #43B02A !important; color: #fff !important; border-color: #43B02A !important; }`;
+  document.head.appendChild(style);
+})();
+
+let selectedImageBase64 = null;
