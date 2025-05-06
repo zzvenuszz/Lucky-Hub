@@ -1455,8 +1455,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const res = await fetch('/api/chat/users', { headers: { 'x-user-id': userId } });
     const users = await res.json();
     const userListDiv = document.getElementById('chat-user-list');
-    userListDiv.innerHTML = users
-      .filter(u => u.group !== 'Hội viên' && u.fullname !== 'HLV AI') // Ẩn hội viên và HLV AI khỏi danh sách chat
+    // Lấy group của user hiện tại
+    const currentUserGroup = localStorage.getItem('groupName');
+    let filteredUsers = users;
+    if (currentUserGroup === 'Hội viên') {
+      filteredUsers = users.filter(u => u.group === 'Quản trị viên' || u.group !== 'Hội viên' && u.group !== 'HLV AI');
+    } else {
+      filteredUsers = users;
+    }
+    userListDiv.innerHTML = filteredUsers
       .map(u => `<button class="btn btn-outline-secondary btn-sm m-1${currentChatUserId === u._id ? ' active-chat-user' : ''}" data-id="${u._id}">${u.fullname} (${u.group})</button>`)
       .join('');
     userListDiv.querySelectorAll('button').forEach(btn => {
