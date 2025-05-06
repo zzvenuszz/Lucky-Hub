@@ -67,9 +67,9 @@ const BodyMetric = mongoose.model('BodyMetric', bodyMetricSchema);
 // Middleware xác thực đơn giản (giả lập, cần thay bằng JWT/session thực tế)
 function auth(req, res, next) {
   const userId = req.headers['x-user-id'];
-  if (!userId) {
-    console.error('Chưa đăng nhập - thiếu x-user-id');
-    return res.status(401).json({ message: 'Chưa đăng nhập.' });
+  if (!userId || userId === 'null' || userId === null) {
+    console.error('Chưa đăng nhập hoặc userId không hợp lệ - thiếu x-user-id');
+    return res.status(401).json({ message: 'Chưa đăng nhập hoặc userId không hợp lệ.' });
   }
   req.userId = userId;
   next();

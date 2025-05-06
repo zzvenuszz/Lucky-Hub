@@ -1,6 +1,6 @@
 // Lấy userId từ localStorage
 const userId = localStorage.getItem('userId');
-if (!userId) window.location.href = 'index.html';
+if (!userId || userId === 'null' || userId === null) window.location.href = 'index.html';
 
 const form = document.getElementById('metricsForm');
 const messageDiv = document.getElementById('message');

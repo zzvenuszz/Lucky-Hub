@@ -1,6 +1,6 @@
 // Lấy userId từ localStorage (giả lập đăng nhập)
 const userId = localStorage.getItem('userId');
-if (!userId) {
+if (!userId || userId === 'null' || userId === null) {
   window.location.href = 'index.html';
 }
 
