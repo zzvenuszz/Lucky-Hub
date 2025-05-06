@@ -416,9 +416,9 @@ app.get('/api/chat/users', auth, async (req, res) => {
     if (!currentUser) return res.status(401).json({ message: 'Không tìm thấy user.' });
     let users = [];
     if (currentUser.group && (currentUser.group.name === 'Quản trị viên' || currentUser.group.permissions?.message)) {
-      // Quản trị viên hoặc user có quyền nhắn tin: lấy tất cả user khác có quyền nhắn tin hoặc là quản trị viên hoặc là hội viên
+      // Quản trị viên hoặc user có quyền nhắn tin: lấy tất cả user khác (trừ chính mình và HLV AI)
       users = await User.find().populate('group');
-      users = users.filter(u => u._id.toString() !== req.userId && (u.group?.name === 'Quản trị viên' || u.group?.permissions?.message || u.group?.name === 'Hội viên'));
+      users = users.filter(u => u._id.toString() !== req.userId && u.fullname !== 'HLV AI');
     } else if (currentUser.group && currentUser.group.name === 'Hội viên') {
       // Hội viên chỉ được chat với quản trị viên hoặc user có quyền nhắn tin, không được chat với hội viên khác
       users = await User.find().populate('group');
