@@ -5,7 +5,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const messageDiv = document.getElementById('message');
 
   // Đặt biến API_URL động theo IP máy chủ
-  const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : `http://${window.location.hostname}:3001`;
+  const API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3001'
+    : `https://${window.location.hostname}`;
 
   // Xử lý đăng nhập
   if (loginForm) {
