@@ -1453,12 +1453,13 @@ window.addEventListener('DOMContentLoaded', () => {
   async function openChatModal() {
     ensureChatModal();
     const modal = new bootstrap.Modal(document.getElementById('chatModal'));
-    document.getElementById('chat-history').innerHTML = '';
-    document.getElementById('chat-input').value = '';
-    chatHistorySkip = 0;
-    chatHistoryDone = false;
-    chatHistoryLoading = false;
-    chatMessages = [];
+    // KHÔNG reset chatMessages, chatHistorySkip, chatHistoryDone nếu đã có dữ liệu và currentChatUserId không đổi
+    const chatDivModal = document.getElementById('chat-history');
+    const chatInputModal = document.getElementById('chat-input');
+    if (!chatDivModal.innerHTML) {
+      chatDivModal.innerHTML = '';
+      chatInputModal.value = '';
+    }
     // Lấy danh sách user có thể chat
     const res = await fetch('/api/chat/users', { headers: { 'x-user-id': userId } });
     const users = await res.json();
@@ -1467,19 +1468,19 @@ window.addEventListener('DOMContentLoaded', () => {
     const currentUserGroup = localStorage.getItem('groupName');
     let filteredUsers = users;
     if (currentUserGroup === 'Hội viên') {
-      // Chỉ hiển thị quản trị viên và nhóm có quyền nhắn tin, loại user có username là 'hlvai'
       filteredUsers = users.filter(u =>
         u.group === 'Quản trị viên' ||
         (u.username !== 'hlvai' && u.group !== 'Hội viên' && u.permissions && u.permissions.message === true)
       );
-      // Mặc định chọn quản trị viên
       const adminUser = filteredUsers.find(u => u.group === 'Quản trị viên');
-      if (adminUser) {
+      if (adminUser && currentChatUserId !== adminUser._id) {
         currentChatUserId = adminUser._id;
+        chatHistorySkip = 0;
+        chatHistoryDone = false;
+        chatMessages = [];
         await loadChatHistory(true);
       }
     } else {
-      // Quản trị viên hoặc nhóm có quyền nhắn tin: hiển thị tất cả ngoại trừ user có username là 'hlvai'
       filteredUsers = users.filter(u => u.username !== 'hlvai');
     }
     userListDiv.innerHTML = filteredUsers
@@ -1487,17 +1488,16 @@ window.addEventListener('DOMContentLoaded', () => {
       .join('');
     userListDiv.querySelectorAll('button').forEach(btn => {
       btn.onclick = () => {
-        currentChatUserId = btn.getAttribute('data-id');
-        chatHistorySkip = 0;
-        chatHistoryDone = false;
-        chatHistoryLoading = false;
-        chatMessages = [];
-        // Cập nhật lại màu sắc nút
-        userListDiv.querySelectorAll('button').forEach(b => b.classList.remove('active-chat-user', 'btn-primary'));
-        btn.classList.add('active-chat-user', 'btn-primary');
-        loadChatHistory(true);
+        if (currentChatUserId !== btn.getAttribute('data-id')) {
+          currentChatUserId = btn.getAttribute('data-id');
+          chatHistorySkip = 0;
+          chatHistoryDone = false;
+          chatMessages = [];
+          userListDiv.querySelectorAll('button').forEach(b => b.classList.remove('active-chat-user', 'btn-primary'));
+          btn.classList.add('active-chat-user', 'btn-primary');
+          loadChatHistory(true);
+        }
       };
-      // Nếu là người đang chat thì tô màu luôn khi render
       if (btn.getAttribute('data-id') === currentChatUserId) {
         btn.classList.add('active-chat-user', 'btn-primary');
       }
@@ -1609,13 +1609,22 @@ window.addEventListener('DOMContentLoaded', () => {
     chatDiv.innerHTML = '';
     chatDiv.appendChild(loadingStatus);
     chatDiv.innerHTML += chatMessages.map(m => {
+      // Hàm format thời gian
+      function formatMsgTime(dateStr) {
+        const d = new Date(dateStr);
+        const now = new Date();
+        if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()) {
+          return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        }
+        return d.toLocaleString('vi-VN');
+      }
       // Bong bóng chat cho tin nhắn hình ảnh
       if (m.image) {
         const isMine = m.from === userId;
         return `<div style="display:flex;justify-content:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:6px;">
           <div style="max-width:70%;min-width:80px;padding:8px 10px;border-radius:16px;box-shadow:0 1px 4px #0001;background:${isMine ? '#d1f5d3' : '#f1f1f1'};color:#222;margin-${isMine ? 'left' : 'right'}:30%;word-break:break-word;">
             <img src="${m.image}" alt="bữa ăn" style="max-width:120px;max-height:120px;border-radius:8px;display:block;margin:4px auto">
-            <div style="font-size:0.85em;color:#888;text-align:${isMine ? 'right' : 'left'};margin-top:2px">${new Date(m.createdAt).toLocaleString('vi-VN')}</div>
+            <div style="font-size:0.85em;color:#888;text-align:${isMine ? 'right' : 'left'};margin-top:2px">${formatMsgTime(m.createdAt)}</div>
           </div>
         </div>`;
       }
@@ -1623,7 +1632,7 @@ window.addEventListener('DOMContentLoaded', () => {
       if (m.from_fullname === 'HLV AI') {
         return `<div style="display:flex;justify-content:center;margin-bottom:6px;">
           <div style="max-width:70%;padding:8px 10px;border-radius:16px;box-shadow:0 1px 4px #0001;background:#e3f0fa;color:#1976d2;word-break:break-word;text-align:center">
-            🤖 <b>HLV AI</b>: ${m.content}<br><span style="font-size:0.85em;color:#888">${new Date(m.createdAt).toLocaleString('vi-VN')}</span>
+            🤖 <b>HLV AI</b>: ${m.content}<br><span style="font-size:0.85em;color:#888">${formatMsgTime(m.createdAt)}</span>
           </div>
         </div>`;
       }
@@ -1631,7 +1640,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const isMine = m.from === userId;
       return `<div style="display:flex;justify-content:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:6px;">
         <div style="max-width:70%;min-width:80px;padding:8px 12px;border-radius:16px;box-shadow:0 1px 4px #0001;background:${isMine ? '#d1f5d3' : '#f1f1f1'};color:#222;margin-${isMine ? 'left' : 'right'}:30%;word-break:break-word;text-align:${isMine ? 'right' : 'left'}">
-          ${m.content}<br><span style="font-size:0.85em;color:#888">${new Date(m.createdAt).toLocaleString('vi-VN')}</span>
+          ${m.content}<br><span style="font-size:0.85em;color:#888">${formatMsgTime(m.createdAt)}</span>
         </div>
       </div>`;
     }).join('');
@@ -1743,7 +1752,18 @@ window.addEventListener('resize', () => {
 // Thêm CSS cho .active-chat-user
 (function addChatUserActiveStyle() {
   const style = document.createElement('style');
-  style.innerHTML = `.active-chat-user { background: #43B02A !important; color: #fff !important; border-color: #43B02A !important; }`;
+  style.innerHTML = `
+    .active-chat-user { background: #43B02A !important; color: #fff !important; border-color: #43B02A !important; }
+    @media (max-width: 700px) {
+      #chat-history {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE 10+ */
+      }
+      #chat-history::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+      }
+    }
+  `;
   document.head.appendChild(style);
 })();
 
