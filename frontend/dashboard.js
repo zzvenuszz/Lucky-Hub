@@ -1445,12 +1445,20 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   let currentChatUserId = null;
+  let chatHistorySkip = 0;
+  let chatHistoryDone = false;
+  let chatHistoryLoading = false;
+  let chatMessages = [];
 
   async function openChatModal() {
     ensureChatModal();
     const modal = new bootstrap.Modal(document.getElementById('chatModal'));
     document.getElementById('chat-history').innerHTML = '';
     document.getElementById('chat-input').value = '';
+    chatHistorySkip = 0;
+    chatHistoryDone = false;
+    chatHistoryLoading = false;
+    chatMessages = [];
     // Lấy danh sách user có thể chat
     const res = await fetch('/api/chat/users', { headers: { 'x-user-id': userId } });
     const users = await res.json();
@@ -1459,9 +1467,20 @@ window.addEventListener('DOMContentLoaded', () => {
     const currentUserGroup = localStorage.getItem('groupName');
     let filteredUsers = users;
     if (currentUserGroup === 'Hội viên') {
-      filteredUsers = users.filter(u => u.group === 'Quản trị viên' || u.group !== 'Hội viên' && u.group !== 'HLV AI');
+      // Chỉ hiển thị quản trị viên và nhóm có quyền nhắn tin, loại user có username là 'hlvai'
+      filteredUsers = users.filter(u =>
+        u.group === 'Quản trị viên' ||
+        (u.username !== 'hlvai' && u.group !== 'Hội viên' && u.permissions && u.permissions.message === true)
+      );
+      // Mặc định chọn quản trị viên
+      const adminUser = filteredUsers.find(u => u.group === 'Quản trị viên');
+      if (adminUser) {
+        currentChatUserId = adminUser._id;
+        await loadChatHistory(true);
+      }
     } else {
-      filteredUsers = users;
+      // Quản trị viên hoặc nhóm có quyền nhắn tin: hiển thị tất cả ngoại trừ user có username là 'hlvai'
+      filteredUsers = users.filter(u => u.username !== 'hlvai');
     }
     userListDiv.innerHTML = filteredUsers
       .map(u => `<button class="btn btn-outline-secondary btn-sm m-1${currentChatUserId === u._id ? ' active-chat-user' : ''}" data-id="${u._id}">${u.fullname} (${u.group})</button>`)
@@ -1469,10 +1488,14 @@ window.addEventListener('DOMContentLoaded', () => {
     userListDiv.querySelectorAll('button').forEach(btn => {
       btn.onclick = () => {
         currentChatUserId = btn.getAttribute('data-id');
+        chatHistorySkip = 0;
+        chatHistoryDone = false;
+        chatHistoryLoading = false;
+        chatMessages = [];
         // Cập nhật lại màu sắc nút
         userListDiv.querySelectorAll('button').forEach(b => b.classList.remove('active-chat-user', 'btn-primary'));
         btn.classList.add('active-chat-user', 'btn-primary');
-        loadChatHistory();
+        loadChatHistory(true);
       };
       // Nếu là người đang chat thì tô màu luôn khi render
       if (btn.getAttribute('data-id') === currentChatUserId) {
@@ -1511,32 +1534,112 @@ window.addEventListener('DOMContentLoaded', () => {
       chatImagePreview.innerHTML = '';
       selectedImageBase64 = null;
       chatImageInput.value = '';
+      // Xử lý triệt để: xóa mọi backdrop còn sót lại
+      document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+      document.body.classList.remove('modal-open');
     });
+    // Sự kiện cuộn lên để tải thêm tin nhắn (chỉ gán 1 lần khi mở chat hoặc chuyển người chat)
+    const chatDiv = document.getElementById('chat-history');
+    chatDiv.onscroll = async function() {
+      if (chatDiv.scrollTop === 0 && !chatHistoryDone && !chatHistoryLoading) {
+        await loadChatHistory(false);
+      }
+    };
     modal.show();
+    // Đảm bảo cuộn xuống dưới cùng sau khi modal hiển thị hoàn toàn
+    document.getElementById('chatModal').addEventListener('shown.bs.modal', function handler() {
+      const chatDiv = document.getElementById('chat-history');
+      setTimeout(() => {
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+        console.log('[DEBUG] Cuộn xuống dưới cùng sau khi modal hiển thị. scrollTop:', chatDiv.scrollTop, 'scrollHeight:', chatDiv.scrollHeight);
+      }, 100);
+      // Chỉ gán 1 lần
+      document.getElementById('chatModal').removeEventListener('shown.bs.modal', handler);
+    });
   }
 
-  async function loadChatHistory() {
+  async function loadChatHistory(reset = false) {
     if (!currentChatUserId) return;
-    const res = await fetch(`/api/chat/history/${currentChatUserId}`, { headers: { 'x-user-id': userId } });
-    const messages = await res.json();
     const chatDiv = document.getElementById('chat-history');
-    chatDiv.innerHTML = messages.map(m => {
-      // Hiển thị ảnh nếu có
+    if (reset) {
+      chatHistorySkip = 0;
+      chatHistoryDone = false;
+      chatMessages = [];
+      chatDiv.innerHTML = '';
+    }
+    if (chatHistoryDone || chatHistoryLoading) return;
+    chatHistoryLoading = true;
+    // Hiển thị trạng thái đang tải
+    let loadingStatus = document.getElementById('chat-loading-status');
+    if (!loadingStatus) {
+      loadingStatus = document.createElement('div');
+      loadingStatus.id = 'chat-loading-status';
+      loadingStatus.style = 'text-align:center;color:#888;font-size:0.95em;padding:4px 0;';
+      chatDiv.prepend(loadingStatus);
+    }
+    loadingStatus.innerText = 'Đang tải tin nhắn...';
+    // Gọi API lấy tổng số tin nhắn giữa 2 người
+    let totalCount = null;
+    if (chatHistorySkip === 0) {
+      const countRes = await fetch(`/api/chat/history/${currentChatUserId}/count`, { headers: { 'x-user-id': userId } });
+      totalCount = await countRes.json();
+    }
+    // Gọi API lấy tin nhắn phân trang
+    const res = await fetch(`/api/chat/history/${currentChatUserId}?skip=${chatHistorySkip}&limit=20`, { headers: { 'x-user-id': userId } });
+    const messages = await res.json();
+    // Nếu tổng số tin nhắn <= 20 thì đã tải hết
+    if (totalCount !== null && totalCount <= 20) chatHistoryDone = true;
+    if (messages.length < 20) chatHistoryDone = true;
+    chatHistorySkip += messages.length;
+    // Nếu đã hết tin nhắn và không có tin nhắn mới, chỉ cập nhật trạng thái loading và return
+    if (messages.length === 0) {
+      if (chatHistoryDone) {
+        let loadingStatus = document.getElementById('chat-loading-status');
+        if (loadingStatus) loadingStatus.innerText = 'Đã hiển thị toàn bộ tin nhắn.';
+      }
+      chatHistoryLoading = false;
+      return;
+    }
+    // Lưu vị trí cuộn trước khi render lại (chỉ khi tải thêm)
+    let prevHeight = chatDiv.scrollHeight;
+    let prevScroll = chatDiv.scrollTop;
+    // Đảo ngược mảng để tin nhắn cũ ở trên, mới ở dưới
+    chatMessages = [...messages.reverse(), ...chatMessages]; // Tin nhắn cũ ở trên, mới ở dưới
+    // Render lại
+    chatDiv.innerHTML = '';
+    chatDiv.appendChild(loadingStatus);
+    chatDiv.innerHTML += chatMessages.map(m => {
       if (m.image) {
         return `<div style="text-align:${m.from === userId ? 'right' : (m.from_fullname === 'HLV AI' ? 'center' : 'left')}"><span class="badge bg-${m.from === userId ? 'success' : (m.from_fullname === 'HLV AI' ? 'info' : 'secondary')}">` +
           `<img src="${m.image}" alt="bữa ăn" style="max-width:120px;max-height:120px;border-radius:8px;display:block;margin:4px auto">` +
           `</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
       }
-      // Hiển thị tin nhắn từ HLV AI
       if (m.from_fullname === 'HLV AI') {
         return `<div style="text-align:center"><span class="badge bg-info" style="white-space:pre-line;word-break:break-word;max-width:90vw;display:inline-block;">🤖 <b>HLV AI</b>: ${m.content}</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
       }
-      // Tin nhắn thường
       return `<div style="text-align:${m.from === userId ? 'right' : 'left'}"><span class="badge bg-${m.from === userId ? 'success' : 'secondary'}">${m.content}</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
     }).join('<hr style="margin:2px 0">');
-    chatDiv.scrollTop = chatDiv.scrollHeight;
+    // Luôn cập nhật trạng thái loading đúng
+    if (chatHistoryDone) {
+      loadingStatus.innerText = 'Đã hiển thị toàn bộ tin nhắn.';
+    } else {
+      loadingStatus.innerText = '';
+    }
+    chatHistoryLoading = false;
+    // Giữ nguyên vị trí cuộn khi tải thêm hoặc cuộn xuống dưới cùng khi mở chat
+    if (!reset) {
+      chatDiv.scrollTop = chatDiv.scrollHeight - prevHeight + prevScroll;
+    } else {
+      // Đảm bảo DOM đã render xong rồi mới cuộn
+      setTimeout(() => {
+        console.log('[DEBUG] Số lượng tin nhắn:', chatMessages.length, 'scrollHeight:', chatDiv.scrollHeight, 'clientHeight:', chatDiv.clientHeight);
+        chatDiv.scrollTop = chatDiv.scrollHeight;
+        console.log('[DEBUG] Đã cuộn xuống dưới cùng (bất kể nội dung vượt khung hay không). scrollTop:', chatDiv.scrollTop, 'scrollHeight:', chatDiv.scrollHeight);
+      }, 100);
+    }
   }
 
+  // Khi gửi tin nhắn mới, luôn cuộn xuống dưới cùng
   async function sendChatMessage() {
     const input = document.getElementById('chat-input');
     const chatImagePreview = document.getElementById('chat-image-preview');
@@ -1579,13 +1682,13 @@ window.addEventListener('DOMContentLoaded', () => {
       if (sendingDiv) sendingDiv.innerHTML = `<span class='badge bg-success'>${content} Đã gửi</span>`;
     }
     input.value = '';
-    setTimeout(loadChatHistory, 600);
+    setTimeout(() => { chatDiv.scrollTop = chatDiv.scrollHeight; loadChatHistory(true); }, 600);
   }
 
   // Thêm sự kiện cho nút chọn ảnh
-  document.getElementById('chat-image-btn').onclick = function() {
-    document.getElementById('chat-image-input').click();
-  };
+  // document.getElementById('chat-image-btn').onclick = function() {
+  //   document.getElementById('chat-image-input').click();
+  // };
 });
 
 // Mặc định hiển thị dashboard

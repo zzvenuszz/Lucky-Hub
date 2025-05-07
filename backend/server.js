@@ -454,6 +454,8 @@ app.post('/api/chat/send', auth, async (req, res) => {
 app.get('/api/chat/history/:userId', auth, async (req, res) => {
   try {
     const { userId } = req.params;
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = parseInt(req.query.limit) || 1000;
     // Lấy userId của HLV AI
     const hlvaiUser = await User.findOne({ username: 'hlvai' });
     const hlvaiId = hlvaiUser ? hlvaiUser._id.toString() : null;
@@ -462,17 +464,18 @@ app.get('/api/chat/history/:userId', auth, async (req, res) => {
     if (hlvaiId) ids.push(hlvaiId);
     const messages = await Message.find({
       $or: [
-        // Tin nhắn giữa 2 user bất kỳ
         { from: req.userId, to: userId },
         { from: userId, to: req.userId },
-        // Tin nhắn từ HLV AI đến 2 user này
         hlvaiId ? { from: hlvaiId, to: req.userId } : {},
         hlvaiId ? { from: hlvaiId, to: userId } : {},
-        // Tin nhắn gửi ảnh bữa ăn từ hội viên
         { from: req.userId, to: userId, image: { $exists: true, $ne: null } },
         { from: userId, to: req.userId, image: { $exists: true, $ne: null } }
       ]
-    }).sort({ createdAt: 1 }).lean();
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
     // Lấy danh sách userId -> fullname
     const userIds = [...new Set(messages.map(m => m.from.toString()))];
     const users = await User.find({ _id: { $in: userIds } });
@@ -482,6 +485,32 @@ app.get('/api/chat/history/:userId', auth, async (req, res) => {
     res.json(messages);
   } catch (err) {
     res.status(500).json({ message: 'Lỗi máy chủ khi lấy lịch sử chat.' });
+  }
+});
+
+// API đếm tổng số tin nhắn giữa hai người (bao gồm cả HLV AI nếu có)
+app.get('/api/chat/history/:userId/count', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Lấy userId của HLV AI
+    const hlvaiUser = await User.findOne({ username: 'hlvai' });
+    const hlvaiId = hlvaiUser ? hlvaiUser._id.toString() : null;
+    // Lấy tất cả tin nhắn giữa req.userId, userId và hlvai
+    const ids = [req.userId, userId];
+    if (hlvaiId) ids.push(hlvaiId);
+    const count = await Message.countDocuments({
+      $or: [
+        { from: req.userId, to: userId },
+        { from: userId, to: req.userId },
+        hlvaiId ? { from: hlvaiId, to: req.userId } : {},
+        hlvaiId ? { from: hlvaiId, to: userId } : {},
+        { from: req.userId, to: userId, image: { $exists: true, $ne: null } },
+        { from: userId, to: req.userId, image: { $exists: true, $ne: null } }
+      ]
+    });
+    res.json(count);
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi đếm tin nhắn.' });
   }
 });
 
