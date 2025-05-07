@@ -1551,7 +1551,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const chatDiv = document.getElementById('chat-history');
       setTimeout(() => {
         chatDiv.scrollTop = chatDiv.scrollHeight;
-        console.log('[DEBUG] Cuộn xuống dưới cùng sau khi modal hiển thị. scrollTop:', chatDiv.scrollTop, 'scrollHeight:', chatDiv.scrollHeight);
+        //console.log('[DEBUG] Cuộn xuống dưới cùng sau khi modal hiển thị. scrollTop:', chatDiv.scrollTop, 'scrollHeight:', chatDiv.scrollHeight);
       }, 100);
       // Chỉ gán 1 lần
       document.getElementById('chatModal').removeEventListener('shown.bs.modal', handler);
@@ -1609,16 +1609,32 @@ window.addEventListener('DOMContentLoaded', () => {
     chatDiv.innerHTML = '';
     chatDiv.appendChild(loadingStatus);
     chatDiv.innerHTML += chatMessages.map(m => {
+      // Bong bóng chat cho tin nhắn hình ảnh
       if (m.image) {
-        return `<div style="text-align:${m.from === userId ? 'right' : (m.from_fullname === 'HLV AI' ? 'center' : 'left')}"><span class="badge bg-${m.from === userId ? 'success' : (m.from_fullname === 'HLV AI' ? 'info' : 'secondary')}">` +
-          `<img src="${m.image}" alt="bữa ăn" style="max-width:120px;max-height:120px;border-radius:8px;display:block;margin:4px auto">` +
-          `</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
+        const isMine = m.from === userId;
+        return `<div style="display:flex;justify-content:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:6px;">
+          <div style="max-width:70%;min-width:80px;padding:8px 10px;border-radius:16px;box-shadow:0 1px 4px #0001;background:${isMine ? '#d1f5d3' : '#f1f1f1'};color:#222;margin-${isMine ? 'left' : 'right'}:30%;word-break:break-word;">
+            <img src="${m.image}" alt="bữa ăn" style="max-width:120px;max-height:120px;border-radius:8px;display:block;margin:4px auto">
+            <div style="font-size:0.85em;color:#888;text-align:${isMine ? 'right' : 'left'};margin-top:2px">${new Date(m.createdAt).toLocaleString('vi-VN')}</div>
+          </div>
+        </div>`;
       }
+      // Bong bóng chat cho HLV AI (giữa)
       if (m.from_fullname === 'HLV AI') {
-        return `<div style="text-align:center"><span class="badge bg-info" style="white-space:pre-line;word-break:break-word;max-width:90vw;display:inline-block;">🤖 <b>HLV AI</b>: ${m.content}</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
+        return `<div style="display:flex;justify-content:center;margin-bottom:6px;">
+          <div style="max-width:70%;padding:8px 10px;border-radius:16px;box-shadow:0 1px 4px #0001;background:#e3f0fa;color:#1976d2;word-break:break-word;text-align:center">
+            🤖 <b>HLV AI</b>: ${m.content}<br><span style="font-size:0.85em;color:#888">${new Date(m.createdAt).toLocaleString('vi-VN')}</span>
+          </div>
+        </div>`;
       }
-      return `<div style="text-align:${m.from === userId ? 'right' : 'left'}"><span class="badge bg-${m.from === userId ? 'success' : 'secondary'}">${m.content}</span><br><small class="text-muted">${new Date(m.createdAt).toLocaleString('vi-VN')}</small></div>`;
-    }).join('<hr style="margin:2px 0">');
+      // Bong bóng chat cho tin nhắn text
+      const isMine = m.from === userId;
+      return `<div style="display:flex;justify-content:${isMine ? 'flex-end' : 'flex-start'};margin-bottom:6px;">
+        <div style="max-width:70%;min-width:80px;padding:8px 12px;border-radius:16px;box-shadow:0 1px 4px #0001;background:${isMine ? '#d1f5d3' : '#f1f1f1'};color:#222;margin-${isMine ? 'left' : 'right'}:30%;word-break:break-word;text-align:${isMine ? 'right' : 'left'}">
+          ${m.content}<br><span style="font-size:0.85em;color:#888">${new Date(m.createdAt).toLocaleString('vi-VN')}</span>
+        </div>
+      </div>`;
+    }).join('');
     // Luôn cập nhật trạng thái loading đúng
     if (chatHistoryDone) {
       loadingStatus.innerText = 'Đã hiển thị toàn bộ tin nhắn.';
@@ -1632,9 +1648,8 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
       // Đảm bảo DOM đã render xong rồi mới cuộn
       setTimeout(() => {
-        console.log('[DEBUG] Số lượng tin nhắn:', chatMessages.length, 'scrollHeight:', chatDiv.scrollHeight, 'clientHeight:', chatDiv.clientHeight);
         chatDiv.scrollTop = chatDiv.scrollHeight;
-        console.log('[DEBUG] Đã cuộn xuống dưới cùng (bất kể nội dung vượt khung hay không). scrollTop:', chatDiv.scrollTop, 'scrollHeight:', chatDiv.scrollHeight);
+        // console.log('[DEBUG] Đã cuộn xuống dưới cùng (bất kể nội dung vượt khung hay không). scrollTop:', chatDiv.scrollTop, 'scrollHeight:', chatDiv.scrollHeight);
       }, 100);
     }
   }
