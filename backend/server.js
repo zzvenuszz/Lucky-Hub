@@ -6,6 +6,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const axios = require('axios');
+const multer = require('multer');
 
 const app = express();
 app.use(cors());
@@ -41,7 +42,8 @@ const userSchema = new mongoose.Schema({
     birthday: { type: Date, required: true },
     height: { type: Number, required: true },
     gender: { type: String, required: true },
-    group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' }
+    group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
+    avatar: { type: String }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -572,6 +574,92 @@ app.post('/api/chat/send-meal', auth, async (req, res) => {
     res.json({ message: 'Đã gửi bữa ăn và nhận tư vấn.', mealMsg, aiReply: geminiReply });
   } catch (err) {
     res.status(500).json({ message: 'Lỗi máy chủ khi gửi bữa ăn.' });
+  }
+});
+
+// Cấu hình multer để upload avatar
+const avatarStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, 'public/static/avatar/'));
+  },
+  filename: function (req, file, cb) {
+    cb(null, req.userId + path.extname(file.originalname));
+  }
+});
+const uploadAvatar = multer({ storage: avatarStorage });
+
+// API: Lấy thông tin cá nhân
+app.get('/api/account/profile', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy user.' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi lấy thông tin cá nhân.' });
+  }
+});
+
+// API: Cập nhật thông tin cá nhân
+app.put('/api/account/profile', auth, async (req, res) => {
+  try {
+    const { fullname, birthday, height, gender } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { fullname, birthday, height, gender },
+      { new: true }
+    ).select('-password');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi cập nhật thông tin cá nhân.' });
+  }
+});
+
+// API: Upload/chỉnh sửa avatar
+app.post('/api/account/avatar', auth, uploadAvatar.single('avatar'), async (req, res) => {
+  try {
+    const fs = require('fs');
+    const mimeType = req.file.mimetype;
+    const base64 = fs.readFileSync(req.file.path, { encoding: 'base64' });
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { avatar: dataUrl },
+      { new: true }
+    ).select('-password');
+    fs.unlinkSync(req.file.path); // Xóa file vật lý sau khi lưu base64
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi upload avatar.' });
+  }
+});
+
+// API: Đổi mật khẩu
+app.put('/api/account/password', auth, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ msg: 'Không tìm thấy user.' });
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) return res.status(400).json({ msg: 'Mật khẩu cũ không đúng' });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ msg: 'Đổi mật khẩu thành công' });
+  } catch (err) {
+    res.status(500).json({ msg: 'Lỗi máy chủ khi đổi mật khẩu.' });
+  }
+});
+
+// API: Xóa avatar
+app.delete('/api/account/avatar', auth, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { avatar: '' },
+      { new: true }
+    ).select('-password');
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi xóa avatar.' });
   }
 });
 

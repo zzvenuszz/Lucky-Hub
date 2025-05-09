@@ -1021,3 +1021,29 @@ body, html {
   min-height: 80px;
   display: block !important;
 } 
+
+.menu-item#btn-account .nav-link {
+  color: #1976d2;
+  font-weight: 600;
+  background: #eafbe7;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+.menu-item#btn-account .nav-link:hover, .menu-item#btn-account.active .nav-link {
+  background: #43B02A;
+  color: #fff;
+}
+@media (max-width: 900px) {
+  #btn-account-mobile {
+    background: #eafbe7;
+    border-radius: 10px;
+    padding: 2px 0 2px 0;
+    color: #1976d2;
+    transition: background 0.2s, color 0.2s;
+  }
+  #btn-account-mobile:active, #btn-account-mobile.active {
+    background: #43B02A;
+    color: #fff;
+  }
+} 

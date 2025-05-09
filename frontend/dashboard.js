@@ -108,15 +108,25 @@ let currentNoteUserId = null;
 // Tổng quan
 function renderDashboard() {
   // Hiển thị thông tin cơ bản của user
+  if (!mainTitle) {
+    console.error('Không tìm thấy phần tử #main-title để render dashboard!');
+    return;
+  }
   const fullname = localStorage.getItem('fullname') || '';
   const gender = localStorage.getItem('gender') || '';
   const height = localStorage.getItem('height') || '';
   const age = localStorage.getItem('age') || '';
+  // Lấy avatar từ localStorage nếu có (dưới dạng base64)
+  let avatar = localStorage.getItem('avatar');
+  if (!avatar || avatar === 'null' || avatar === null) {
+    avatar = 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-anim.svg';
+  }
   mainTitle.innerHTML = `
-    <div style="font-size:2rem;font-weight:bold;color:#43B02A;line-height:1.2;">
-      ${fullname}
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;">
+      <img src="${avatar}" alt="avatar" style="width:64px;height:64px;object-fit:cover;border-radius:50%;border:2px solid #eafbe7;background:#fff;box-shadow:0 2px 8px #eafbe7;">
+      <div style="font-size:2rem;font-weight:bold;color:#43B02A;line-height:1.2;">${fullname}</div>
     </div>
-    <div style="font-size:1rem;color:#333;line-height:1.7;">
+    <div style="font-size:1rem;color:#333;line-height:1.7;text-align:center;">
       ${[
         age ? `Tuổi: <b>${age}</b>` : '',
         gender ? `Giới tính: <b>${gender}</b>` : '',
@@ -1768,3 +1778,231 @@ window.addEventListener('resize', () => {
 })();
 
 let selectedImageBase64 = null;
+
+// Thêm modal quản lý tài khoản vào DOM nếu chưa có
+if (!document.getElementById('accountModal')) {
+  const modalDiv = document.createElement('div');
+  modalDiv.innerHTML = `
+    <div class="modal fade" id="accountModal" tabindex="-1" aria-labelledby="accountModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="accountModalLabel">Quản lý tài khoản</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="accountForm">
+              <div class="mb-3">
+                <label for="accountFullname" class="form-label">Họ tên</label>
+                <input type="text" class="form-control" id="accountFullname" required>
+              </div>
+              <div class="mb-3">
+                <label for="accountBirthday" class="form-label">Ngày sinh</label>
+                <input type="date" class="form-control" id="accountBirthday">
+              </div>
+              <div class="mb-3">
+                <label for="accountHeight" class="form-label">Chiều cao (cm)</label>
+                <input type="number" class="form-control" id="accountHeight">
+              </div>
+              <div class="mb-3">
+                <label for="accountGender" class="form-label">Giới tính</label>
+                <select class="form-select" id="accountGender">
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="accountAvatar" class="form-label">Ảnh đại diện</label>
+                <input type="file" class="form-control" id="accountAvatar" accept="image/*">
+                <div id="accountAvatarPreview" class="mt-2"></div>
+              </div>
+              <button type="submit" class="btn btn-primary">Cập nhật</button>
+            </form>
+            <hr>
+            <form id="passwordForm">
+              <div class="mb-3">
+                <label for="oldPassword" class="form-label">Mật khẩu cũ</label>
+                <input type="password" class="form-control" id="oldPassword" required>
+              </div>
+              <div class="mb-3">
+                <label for="newPassword" class="form-label">Mật khẩu mới</label>
+                <input type="password" class="form-control" id="newPassword" required>
+              </div>
+              <button type="submit" class="btn btn-warning">Đổi mật khẩu</button>
+            </form>
+            <div id="accountMessage" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modalDiv);
+}
+
+// Thêm nút mở modal tài khoản vào sidebar nếu chưa có
+if (!document.getElementById('btn-account')) {
+  const sidebar = document.querySelector('.sidebar ul');
+  if (sidebar) {
+    const li = document.createElement('li');
+    li.innerHTML = '<a href="#" id="btn-account">Tài khoản</a>';
+    sidebar.appendChild(li);
+  }
+}
+
+// Xử lý mở modal tài khoản
+const btnAccount = document.getElementById('btn-account');
+if (btnAccount) {
+  btnAccount.onclick = function() {
+    setActiveMenu(btnAccount);
+    openAccountModal();
+  };
+}
+const btnAccountMobile = document.getElementById('btn-account-mobile');
+if (btnAccountMobile) {
+  btnAccountMobile.onclick = function() {
+    // Đặt trạng thái active cho mobile
+    document.querySelectorAll('.sidebar-icon-btn').forEach(el => el.classList.remove('active'));
+    btnAccountMobile.classList.add('active');
+    openAccountModal();
+  };
+}
+
+function openAccountModal() {
+  fetch('/api/account/profile', { headers: { 'x-user-id': userId } })
+    .then(res => res.json())
+    .then(user => {
+      document.getElementById('accountFullname').value = user.fullname || '';
+      document.getElementById('accountBirthday').value = user.birthday ? new Date(user.birthday).toISOString().slice(0,10) : '';
+      document.getElementById('accountHeight').value = user.height || '';
+      document.getElementById('accountGender').value = user.gender || 'Nam';
+      if (user.avatar) {
+        document.getElementById('accountAvatarPreview').innerHTML = `<img src="${user.avatar}" style="max-width:80px;border-radius:8px">`;
+        localStorage.setItem('avatar', user.avatar); // Lưu base64 vào localStorage khi mở modal
+      } else {
+        document.getElementById('accountAvatarPreview').innerHTML = '';
+        localStorage.setItem('avatar', 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-anim.svg');
+      }
+      ensureDeleteAvatarBtn();
+      document.getElementById('accountMessage').innerText = '';
+      const modal = new bootstrap.Modal(document.getElementById('accountModal'));
+      modal.show();
+    });
+}
+
+// Xử lý cập nhật thông tin cá nhân
+if (document.getElementById('accountForm')) {
+  document.getElementById('accountForm').onsubmit = async function(e) {
+    e.preventDefault();
+    const fullname = document.getElementById('accountFullname').value;
+    const birthday = document.getElementById('accountBirthday').value;
+    const height = document.getElementById('accountHeight').value;
+    const gender = document.getElementById('accountGender').value;
+    const res = await fetch('/api/account/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ fullname, birthday, height, gender })
+    });
+    if (res.ok) {
+      document.getElementById('accountMessage').innerText = 'Cập nhật thành công!';
+      // Reload lại thông tin cá nhân từ server và cập nhật localStorage
+      const profileRes = await fetch('/api/account/profile', { headers: { 'x-user-id': userId } });
+      if (profileRes.ok) {
+        const user = await profileRes.json();
+        localStorage.setItem('fullname', user.fullname || '');
+        localStorage.setItem('gender', user.gender || '');
+        localStorage.setItem('height', user.height || '');
+        localStorage.setItem('birthday', user.birthday || '');
+        if (user.avatar) localStorage.setItem('avatar', user.avatar);
+        renderDashboard();
+      }
+    } else {
+      document.getElementById('accountMessage').innerText = 'Lỗi khi cập nhật!';
+    }
+  };
+}
+
+// Xử lý upload avatar
+if (document.getElementById('accountAvatar')) {
+  document.getElementById('accountAvatar').onchange = async function() {
+    const file = this.files[0];
+    if (!file) return;
+    // Preview ảnh trước khi upload
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('accountAvatarPreview').innerHTML = `<img src="${e.target.result}" style="max-width:80px;border-radius:8px">`;
+      document.getElementById('accountAvatarPreview').setAttribute('data-base64', e.target.result);
+    };
+    reader.readAsDataURL(file);
+    // Tiếp tục upload lên server
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await fetch('/api/account/avatar', {
+      method: 'POST',
+      headers: { 'x-user-id': userId },
+      body: formData
+    });
+    const user = await res.json();
+    if (user.avatar) {
+      document.getElementById('accountAvatarPreview').innerHTML = `<img src="${user.avatar}" style="max-width:80px;border-radius:8px">`;
+      localStorage.setItem('avatar', user.avatar); // Lưu base64 vào localStorage
+      renderDashboard(); // Cập nhật lại dashboard
+    } else {
+      document.getElementById('accountMessage').innerText = 'Lỗi khi cập nhật ảnh đại diện!';
+    }
+  };
+}
+
+// Xử lý đổi mật khẩu
+if (document.getElementById('passwordForm')) {
+  document.getElementById('passwordForm').onsubmit = async function(e) {
+    e.preventDefault();
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const res = await fetch('/api/account/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+      body: JSON.stringify({ oldPassword, newPassword })
+    });
+    const result = await res.json();
+    if (res.ok) {
+      document.getElementById('accountMessage').innerText = 'Đổi mật khẩu thành công!';
+    } else {
+      document.getElementById('accountMessage').innerText = result.msg || 'Lỗi khi đổi mật khẩu!';
+    }
+  };
+}
+
+// Thêm nút xóa avatar vào modal tài khoản (nếu chưa có)
+function ensureDeleteAvatarBtn() {
+  const previewDiv = document.getElementById('accountAvatarPreview');
+  if (previewDiv && !document.getElementById('btn-delete-avatar')) {
+    const btn = document.createElement('button');
+    btn.id = 'btn-delete-avatar';
+    btn.className = 'btn btn-outline-danger btn-sm mt-2';
+    btn.innerText = 'Xóa avatar';
+    btn.onclick = async function() {
+      const res = await fetch('/api/account/avatar', {
+        method: 'DELETE',
+        headers: { 'x-user-id': userId }
+      });
+      if (res.ok) {
+        const user = await res.json();
+        const defaultAvatar = 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-anim.svg';
+        // Nếu user.avatar rỗng hoặc null thì đặt về mặc định
+        if (!user.avatar) {
+          localStorage.setItem('avatar', defaultAvatar);
+          document.getElementById('accountAvatarPreview').innerHTML = '';
+        } else {
+          localStorage.setItem('avatar', user.avatar);
+          document.getElementById('accountAvatarPreview').innerHTML = `<img src="${user.avatar}" style="max-width:80px;border-radius:8px">`;
+        }
+        renderDashboard();
+        document.getElementById('accountMessage').innerText = 'Đã xóa avatar.';
+      } else {
+        document.getElementById('accountMessage').innerText = 'Lỗi khi xóa avatar!';
+      }
+    };
+    previewDiv.parentNode.appendChild(btn);
+  }
+}
