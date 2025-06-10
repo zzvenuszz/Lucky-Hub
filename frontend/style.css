@@ -467,7 +467,7 @@ body, html {
   flex: 1;
   background: #fff;
   border-radius: 18px;
-  margin: 24px;
+  margin: 0 20px 20px 20px;
   padding: 32px 24px 24px 24px;
   box-shadow: 0 4px 32px rgba(67, 176, 42, 0.13);
   min-width: 0;
@@ -760,13 +760,13 @@ body, html {
   .sidebar {
     position: fixed;
     left: 0;
-    top: 32px;
-    height: calc(100vh - 64px);
+    top: 20px;
+    bottom: 20px;
     align-self: flex-start;
     margin-left: 0 !important;
     width: 260px;
     z-index: 1030;
-    padding-top: 0 !important;
+    padding-top: 8px !important;
     padding-bottom: 0 !important;
     display: flex;
     flex-direction: column;
@@ -777,12 +777,14 @@ body, html {
     width: 72px !important;
     min-width: 72px !important;
     max-width: 72px !important;
-    top: 24px;
-    height: calc(100vh - 48px);
+    top: 20px;
+    bottom: 20px;
+    padding-bottom: 0 !important;
   }
   .main-layout {
     margin-left: 260px;
     transition: margin-left 0.25s cubic-bezier(0.4,0,0.2,1);
+    margin-top: 20px !important;
   }
   .main-layout.sidebar-collapsed {
     margin-left: 72px !important;
