@@ -113,13 +113,18 @@ function renderDashboard() {
     return;
   }
   const fullname = localStorage.getItem('fullname') || '';
-  const gender = localStorage.getItem('gender') || '';
+  const gender = localStorage.getItem('gender') || 'Nam';
   const height = localStorage.getItem('height') || '';
   const age = localStorage.getItem('age') || '';
-  // Lấy avatar từ localStorage nếu có (dưới dạng base64)
+  // Lấy avatar từ localStorage nếu có (dưới dạng base64 hoặc url)
   let avatar = localStorage.getItem('avatar');
-  if (!avatar || avatar === 'null' || avatar === null) {
-    avatar = 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-anim.svg';
+  // Nếu avatar không hợp lệ hoặc là chuỗi 'avatar', luôn fallback về mặc định và cập nhật lại localStorage
+  if (!avatar || avatar === 'null' || avatar === null || avatar === 'avatar' ||
+      (typeof avatar === 'string' && !(avatar.startsWith('data:image') || avatar.startsWith('http://') || avatar.startsWith('https://')))) {
+    avatar = gender === 'Nữ'
+      ? 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-female.svg'
+      : 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-male.svg';
+    localStorage.setItem('avatar', avatar);
   }
   mainTitle.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;">
@@ -134,6 +139,10 @@ function renderDashboard() {
       ].filter(Boolean).join(' | ')}
     </div>
   `;
+  setTimeout(() => {
+    const img = document.getElementById('main-avatar-img');
+    setSafeAvatar(img, avatar, gender);
+  }, 0);
   mainContentArea.innerHTML = `
     <div id="latest-metrics" class="dashboard-metrics"><div>Đang tải dữ liệu...</div></div>
     <div id="latest-analysis" class="dashboard-analysis"></div>
@@ -266,11 +275,12 @@ async function fetchLatestMetrics() {
       headers: { 'x-user-id': userId }
     });
     if (!res.ok) {
-      metricsDiv.innerHTML = '<div>Chưa có dữ liệu chỉ số.</div>';
+      metricsDiv.innerHTML = '<div class="text-warning">Bạn chưa có dữ liệu chỉ số nào. Hãy nhấn <b>Cập nhật chỉ số</b> để thêm chỉ số đầu tiên!</div>';
       return;
     }
     const { latest, previous } = await res.json();
     if (!latest) {
+      metricsDiv.innerHTML = '<div class="text-warning">Bạn chưa có dữ liệu chỉ số nào. Hãy nhấn <b>Cập nhật chỉ số</b> để thêm chỉ số đầu tiên!</div>';
       // Hiển thị thông báo thay cho biểu đồ
       let pieDiv = document.getElementById('body-structure-chart');
       if (!pieDiv) {
@@ -1225,7 +1235,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const gender = localStorage.getItem('gender') || '';
       const height = localStorage.getItem('height') || '';
       const age = localStorage.getItem('age') || '';
-      const prompt = `đây là hình ảnh ghi chỉ số sức khỏe của ${fullname}, giới tính ${gender}, chiều cao ${height} cm, tuổi ${age}. Hãy phân tích và chỉ trích xuất đầy đủ các chỉ số của ngày gần nhất (mới nhất) trong ảnh, gồm: cân nặng, tỉ lệ mỡ cơ thể, khoáng chất, nước, cơ bắp, chỉ số cân đối, năng lượng, tuổi sinh học, mỡ nội tạng. Trả lời hoàn toàn bằng tiếng Việt, trả về kết quả dưới dạng JSON với các trường: cân_nặng, mỡ_cơ_thể, khoáng_chất, nước, cơ_bắp, cân_đối, năng_lượng, tuổi_sinh_học, mỡ_nội_tạng, và phân tích sự thay đổi so với chỉ số gần nhất trước đó (nếu có)`;
+      const prompt = `đây là hình ảnh ghi chỉ số sức khỏe của ${fullname}, giới tính ${gender}, chiều cao ${height} cm, tuổi ${age}. Trong hình ảnh có thể có nhiều dòng dữ liệu theo thời gian, hãy chỉ lấy và phân tích dòng dữ liệu của ngày gần nhất (mới nhất) trong ảnh. Các chỉ số cần trích xuất gồm: cân nặng, tỉ lệ mỡ cơ thể, khoáng chất, nước, cơ bắp, chỉ số cân đối, năng lượng, tuổi sinh học, mỡ nội tạng. Trả lời hoàn toàn bằng tiếng Việt, trả về kết quả dưới dạng JSON với các trường: cân_nặng, mỡ_cơ_thể, khoáng_chất, nước, cơ_bắp, cân_đối, năng_lượng, tuổi_sinh_học, mỡ_nội_tạng, và phân tích sự thay đổi so với chỉ số gần nhất trước đó (nếu có)`;
       try {
         const res = await fetch('/api/body-metrics/analyze-image', {
           method: 'POST',
@@ -1791,6 +1801,16 @@ if (!document.getElementById('accountModal')) {
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
+            <div class="text-center mb-4">
+              <div id="accountCurrentAvatar" class="mb-2" style="display:inline-block;position:relative;">
+                <img src="" alt="avatar" style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:2px solid #eafbe7;background:#fff;box-shadow:0 2px 8px #eafbe7;">
+              </div>
+              <div class="mb-3">
+                <label for="accountAvatar" class="form-label">Cập nhật ảnh đại diện</label>
+                <input type="file" class="form-control" id="accountAvatar" accept="image/*">
+                <div id="accountAvatarPreview" class="mt-2"></div>
+              </div>
+            </div>
             <form id="accountForm">
               <div class="mb-3">
                 <label for="accountFullname" class="form-label">Họ tên</label>
@@ -1811,11 +1831,6 @@ if (!document.getElementById('accountModal')) {
                   <option value="Nữ">Nữ</option>
                   <option value="Khác">Khác</option>
                 </select>
-              </div>
-              <div class="mb-3">
-                <label for="accountAvatar" class="form-label">Ảnh đại diện</label>
-                <input type="file" class="form-control" id="accountAvatar" accept="image/*">
-                <div id="accountAvatarPreview" class="mt-2"></div>
               </div>
               <button type="submit" class="btn btn-primary">Cập nhật</button>
             </form>
@@ -1876,13 +1891,12 @@ function openAccountModal() {
       document.getElementById('accountBirthday').value = user.birthday ? new Date(user.birthday).toISOString().slice(0,10) : '';
       document.getElementById('accountHeight').value = user.height || '';
       document.getElementById('accountGender').value = user.gender || 'Nam';
-      if (user.avatar) {
-        document.getElementById('accountAvatarPreview').innerHTML = `<img src="${user.avatar}" style="max-width:80px;border-radius:8px">`;
-        localStorage.setItem('avatar', user.avatar); // Lưu base64 vào localStorage khi mở modal
-      } else {
-        document.getElementById('accountAvatarPreview').innerHTML = '';
-        localStorage.setItem('avatar', 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-anim.svg');
-      }
+      const gender = user.gender || 'Nam';
+      // Hiển thị avatar hiện tại trong modal bằng setSafeAvatar
+      const currentAvatar = document.getElementById('accountCurrentAvatar').querySelector('img');
+      setSafeAvatar(currentAvatar, user.avatar, gender);
+      // Reset preview avatar mới
+      document.getElementById('accountAvatarPreview').innerHTML = '';
       ensureDeleteAvatarBtn();
       document.getElementById('accountMessage').innerText = '';
       const modal = new bootstrap.Modal(document.getElementById('accountModal'));
@@ -1930,8 +1944,9 @@ if (document.getElementById('accountAvatar')) {
     // Preview ảnh trước khi upload
     const reader = new FileReader();
     reader.onload = function(e) {
-      document.getElementById('accountAvatarPreview').innerHTML = `<img src="${e.target.result}" style="max-width:80px;border-radius:8px">`;
-      document.getElementById('accountAvatarPreview').setAttribute('data-base64', e.target.result);
+      const base64 = e.target.result;
+      document.getElementById('accountAvatarPreview').innerHTML = `<img src="${base64}" style="max-width:80px;border-radius:8px">`;
+      document.getElementById('accountAvatarPreview').setAttribute('data-base64', base64);
     };
     reader.readAsDataURL(file);
     // Tiếp tục upload lên server
@@ -1944,8 +1959,14 @@ if (document.getElementById('accountAvatar')) {
     });
     const user = await res.json();
     if (user.avatar) {
-      document.getElementById('accountAvatarPreview').innerHTML = `<img src="${user.avatar}" style="max-width:80px;border-radius:8px">`;
-      localStorage.setItem('avatar', user.avatar); // Lưu base64 vào localStorage
+      // Đảm bảo avatar có định dạng base64 đúng
+      const avatarBase64 = user.avatar.startsWith('data:image') ? user.avatar : `data:image/jpeg;base64,${user.avatar}`;
+      // Cập nhật avatar hiện tại
+      const currentAvatar = document.getElementById('accountCurrentAvatar').querySelector('img');
+      currentAvatar.src = avatarBase64;
+      // Cập nhật preview
+      document.getElementById('accountAvatarPreview').innerHTML = `<img src="${avatarBase64}" style="max-width:80px;border-radius:8px">`;
+      localStorage.setItem('avatar', avatarBase64); // Lưu base64 vào localStorage
       renderDashboard(); // Cập nhật lại dashboard
     } else {
       document.getElementById('accountMessage').innerText = 'Lỗi khi cập nhật ảnh đại diện!';
@@ -1987,16 +2008,16 @@ function ensureDeleteAvatarBtn() {
         headers: { 'x-user-id': userId }
       });
       if (res.ok) {
-        const user = await res.json();
-        const defaultAvatar = 'https://cdn.jsdelivr.net/gh/duyplus/static@main/user-default-anim.svg';
-        // Nếu user.avatar rỗng hoặc null thì đặt về mặc định
-        if (!user.avatar) {
-          localStorage.setItem('avatar', defaultAvatar);
-          document.getElementById('accountAvatarPreview').innerHTML = '';
-        } else {
-          localStorage.setItem('avatar', user.avatar);
-          document.getElementById('accountAvatarPreview').innerHTML = `<img src="${user.avatar}" style="max-width:80px;border-radius:8px">`;
-        }
+        const gender = localStorage.getItem('gender') || 'Nam';
+        const defaultAvatar = gender === 'Nữ'
+          ? 'https://img.icons8.com/color/96/000000/user-female-circle--v2.png'
+          : 'https://img.icons8.com/color/96/000000/user-male-circle--v2.png';
+        localStorage.setItem('avatar', defaultAvatar);
+        // Reset src trước khi gán lại để tránh cache lỗi
+        const currentAvatar = document.getElementById('accountCurrentAvatar').querySelector('img');
+        currentAvatar.src = '';
+        setSafeAvatar(currentAvatar, defaultAvatar, gender);
+        document.getElementById('accountAvatarPreview').innerHTML = '';
         renderDashboard();
         document.getElementById('accountMessage').innerText = 'Đã xóa avatar.';
       } else {
@@ -2004,5 +2025,23 @@ function ensureDeleteAvatarBtn() {
       }
     };
     previewDiv.parentNode.appendChild(btn);
+  }
+}
+
+function setSafeAvatar(imgElement, avatar, gender) {
+  // Link avatar mặc định mới từ icons8.com
+  const fallback = gender === 'Nữ'
+    ? 'https://img.icons8.com/color/96/000000/user-female-circle--v2.png'
+    : 'https://img.icons8.com/color/96/000000/user-male-circle--v2.png';
+  imgElement.onerror = function() {
+    imgElement.onerror = null;
+    imgElement.src = fallback;
+  };
+  if (avatar && typeof avatar === 'string' && avatar.startsWith('data:image')) {
+    imgElement.src = avatar;
+  } else if (avatar && (avatar.startsWith('http://') || avatar.startsWith('https://'))) {
+    imgElement.src = avatar;
+  } else {
+    imgElement.src = fallback;
   }
 }

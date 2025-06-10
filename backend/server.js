@@ -627,6 +627,10 @@ app.post('/api/account/avatar', auth, uploadAvatar.single('avatar'), async (req,
       { new: true }
     ).select('-password');
     fs.unlinkSync(req.file.path); // Xóa file vật lý sau khi lưu base64
+    // Đảm bảo trả về đúng định dạng base64
+    if (user.avatar && !user.avatar.startsWith('data:image')) {
+      user.avatar = `data:${mimeType};base64,${user.avatar}`;
+    }
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: 'Lỗi máy chủ khi upload avatar.' });
