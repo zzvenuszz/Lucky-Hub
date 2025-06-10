@@ -299,7 +299,13 @@ app.post('/api/body-metrics/analyze-image', auth, async (req, res) => {
     // Sử dụng prompt truyền lên từ frontend nếu có
     let finalPrompt = prompt;
     if (!finalPrompt) {
-      finalPrompt = `đây là hình ảnh ghi chỉ số sức khỏe của ${fullname}, giới tính ${gender}, chiều cao ${height} cm, tuổi ${age}. hãy phân tích chỉ số sức khỏe và trả về kết quả dưới dạng json và phân tích những thay đổi của từng chỉ số so với chỉ số gần nhất (nếu có). lưu ý nếu có nhiều chỉ số nước hãy trả về chỉ số nước tính theo phần trăm. nếu có nhiều chỉ số liên quan đến cơ bắp thì trả về chỉ số khối lượng cơ tính bằng kg. nếu không có chỉ số cân đối hãy trả về nội dung chỉ số cân đối 0.`;
+      finalPrompt = `đây là hình ảnh ghi chỉ số sức khỏe của ${fullname}, giới tính ${gender}, chiều cao ${height} cm, tuổi ${age}. hãy phân tích chỉ số sức khỏe và trả về kết quả dưới dạng json và phân tích những thay đổi của từng chỉ số so với chỉ số gần nhất (nếu có). 
+
+Lưu ý quan trọng:
+1. Nếu trong ảnh có cả chỉ số nước tính bằng phần trăm và chỉ số nước tính bằng kg, hãy CHỈ lấy chỉ số nước tính bằng phần trăm.
+2. Nếu trong ảnh có cả chỉ số cơ bắp tính bằng phần trăm và chỉ số cơ bắp tính bằng kg, hãy CHỈ lấy chỉ số cơ bắp tính bằng kg.
+3. Nếu trong ảnh không có chỉ số cân đối, hãy trả về giá trị null hoặc undefined, KHÔNG tự ý thay thế bằng chỉ số khác.
+4. Nếu không tìm thấy chỉ số nào, hãy trả về giá trị null hoặc undefined cho chỉ số đó, không tự ý điền giá trị.`;
       if (lastMetrics) {
         finalPrompt += `\nChỉ số gần nhất: ${JSON.stringify(lastMetrics)}`;
       }
