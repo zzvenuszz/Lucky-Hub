@@ -305,7 +305,8 @@ Lưu ý quan trọng:
 1. Nếu trong ảnh có cả chỉ số nước tính bằng phần trăm và chỉ số nước tính bằng kg, hãy CHỈ lấy chỉ số nước tính bằng phần trăm.
 2. Nếu trong ảnh có cả chỉ số cơ bắp tính bằng phần trăm và chỉ số cơ bắp tính bằng kg, hãy CHỈ lấy chỉ số cơ bắp tính bằng kg.
 3. Nếu trong ảnh không có chỉ số cân đối, hãy trả về giá trị null hoặc undefined, KHÔNG tự ý thay thế bằng chỉ số khác.
-4. Nếu không tìm thấy chỉ số nào, hãy trả về giá trị null hoặc undefined cho chỉ số đó, không tự ý điền giá trị.`;
+4. Nếu không tìm thấy chỉ số nào, hãy trả về giá trị null hoặc undefined cho chỉ số đó, không tự ý điền giá trị.
+5. Lưu ý: Trong một số trường hợp, chỉ số khoáng chất còn được gọi là khối lượng xương.`;
       if (lastMetrics) {
         finalPrompt += `\nChỉ số gần nhất: ${JSON.stringify(lastMetrics)}`;
       }
@@ -544,7 +545,7 @@ app.post('/api/chat/send-meal', auth, async (req, res) => {
       metricsText = `Cân nặng: ${latestMetric.canNang ?? '-'}, Tỉ lệ mỡ: ${latestMetric.tiLeMoCoThe ?? '-'}, Khoáng chất: ${latestMetric.luongKhoangChat ?? '-'}, Nước: ${latestMetric.chiSoNuoc ?? '-'}, Cơ bắp: ${latestMetric.luongCoBap ?? '-'}, Cân đối: ${latestMetric.chiSoCanDoi ?? '-'}, Năng lượng: ${latestMetric.nangLuong ?? '-'}, Tuổi sinh học: ${latestMetric.tuoiSinhHoc ?? '-'}, Mỡ nội tạng: ${latestMetric.moNoiTang ?? '-'}`;
     }
     // 3. Gửi ảnh + prompt cho Gemini
-    const prompt = `đây là bữa ăn của ${fromUser.fullname} với các chỉ số cơ thể như sau: ${metricsText}. Hãy phân tích bữa ăn và tư vấn cách ăn hợp lý. Trả lời ngắn gọn, đơn giản, dễ hiểu cho người bình thường.`;
+    const prompt = `đây là bữa ăn của ${fromUser.fullname} với các chỉ số cơ thể như sau: ${metricsText}. Hãy phân tích bữa ăn và tư vấn cách ăn hợp lý. Trả lời ngắn gọn, đơn giản, dễ hiểu cho người bình thường.\nLưu ý: Trong một số trường hợp, chỉ số khoáng chất còn được gọi là khối lượng xương.`;
     const base64 = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, "");
     let geminiReply = '';
     try {

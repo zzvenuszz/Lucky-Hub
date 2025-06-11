@@ -1242,8 +1242,7 @@ Lưu ý quan trọng:
 2. Nếu trong ảnh có cả chỉ số cơ bắp tính bằng phần trăm và chỉ số cơ bắp tính bằng kg, hãy CHỈ lấy chỉ số cơ bắp tính bằng kg.
 3. Nếu trong ảnh không có chỉ số cân đối, hãy trả về giá trị null hoặc undefined, KHÔNG tự ý thay thế bằng chỉ số khác.
 4. Nếu không tìm thấy chỉ số nào, hãy trả về giá trị null hoặc undefined cho chỉ số đó, không tự ý điền giá trị.
-
-Trả lời hoàn toàn bằng tiếng Việt, trả về kết quả dưới dạng JSON với các trường: cân_nặng, mỡ_cơ_thể, khoáng_chất, nước, cơ_bắp, cân_đối, năng_lượng, tuổi_sinh_học, mỡ_nội_tạng, và phân tích sự thay đổi so với chỉ số gần nhất trước đó (nếu có)`;
+5. Lưu ý: Trong một số trường hợp, chỉ số khoáng chất còn được gọi là khối lượng xương.`;
       try {
         const res = await fetch('/api/body-metrics/analyze-image', {
           method: 'POST',
