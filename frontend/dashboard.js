@@ -128,7 +128,7 @@ function renderDashboard() {
   }
   mainTitle.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;">
-      <img src="${avatar}" alt="avatar" style="width:64px;height:64px;object-fit:cover;border-radius:50%;border:2px solid #eafbe7;background:#fff;box-shadow:0 2px 8px #eafbe7;">
+      <img id="main-avatar-img" src="${avatar}" alt="avatar" style="width:64px;height:64px;object-fit:cover;border-radius:50%;border:2px solid #eafbe7;background:#fff;box-shadow:0 2px 8px #eafbe7;">
       <div style="font-size:2rem;font-weight:bold;color:#43B02A;line-height:1.2;">${fullname}</div>
     </div>
     <div style="font-size:1rem;color:#333;line-height:1.7;text-align:center;">
@@ -1235,14 +1235,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const gender = localStorage.getItem('gender') || '';
       const height = localStorage.getItem('height') || '';
       const age = localStorage.getItem('age') || '';
-      const prompt = `đây là hình ảnh ghi chỉ số sức khỏe của ${fullname}, giới tính ${gender}, chiều cao ${height} cm, tuổi ${age}. Trong hình ảnh có thể có nhiều dòng dữ liệu theo thời gian, hãy chỉ lấy và phân tích dòng dữ liệu của ngày gần nhất (mới nhất) trong ảnh. Các chỉ số cần trích xuất gồm: cân nặng, tỉ lệ mỡ cơ thể, khoáng chất, nước, cơ bắp, chỉ số cân đối, năng lượng, tuổi sinh học, mỡ nội tạng.
-
-Lưu ý quan trọng:
-1. Nếu trong ảnh có cả chỉ số nước tính bằng phần trăm và chỉ số nước tính bằng kg, hãy CHỈ lấy chỉ số nước tính bằng phần trăm.
-2. Nếu trong ảnh có cả chỉ số cơ bắp tính bằng phần trăm và chỉ số cơ bắp tính bằng kg, hãy CHỈ lấy chỉ số cơ bắp tính bằng kg.
-3. Nếu trong ảnh không có chỉ số cân đối, hãy trả về giá trị null hoặc undefined, KHÔNG tự ý thay thế bằng chỉ số khác.
-4. Nếu không tìm thấy chỉ số nào, hãy trả về giá trị null hoặc undefined cho chỉ số đó, không tự ý điền giá trị.
-5. Lưu ý: Trong một số trường hợp, chỉ số khoáng chất còn được gọi là khối lượng xương.`;
+      const prompt = `đây là hình ảnh ghi chỉ số sức khỏe của ${fullname}, giới tính ${gender}, chiều cao ${height} cm, tuổi ${age}. Trong hình ảnh có thể có nhiều dòng dữ liệu theo thời gian, hãy chỉ lấy và phân tích dòng dữ liệu của ngày gần nhất (mới nhất) trong ảnh. Các chỉ số cần trích xuất gồm: cân nặng, tỉ lệ mỡ cơ thể, khoáng chất, nước, cơ bắp, chỉ số cân đối, năng lượng, tuổi sinh học, mỡ nội tạng.\n\nLưu ý quan trọng:\n1. Nếu trong ảnh có cả chỉ số nước tính bằng phần trăm và chỉ số nước tính bằng kg, hãy CHỈ lấy chỉ số nước tính bằng phần trăm.\n2. Nếu trong ảnh có cả chỉ số cơ bắp tính bằng phần trăm và chỉ số cơ bắp tính bằng kg, hãy CHỈ lấy chỉ số cơ bắp tính bằng kg.\n3. Nếu trong ảnh không có chỉ số cân đối, hãy trả về giá trị null hoặc undefined, KHÔNG tự ý thay thế bằng chỉ số khác.\n4. Nếu không tìm thấy chỉ số nào, hãy trả về giá trị null hoặc undefined cho chỉ số đó, không tự ý điền giá trị.\n5. Lưu ý: Trong một số trường hợp, chỉ số khoáng chất còn được gọi là khối lượng xương.\n\nChỉ trả về kết quả dưới dạng JSON, không giải thích, không mô tả, không markdown, không thêm bất kỳ ký tự nào ngoài JSON. Ví dụ: {"cân_nặng": 48.6, "tỉ_lệ_mỡ_cơ_thể": 29.6, "khoáng_chất": 2.1, "nước": 51.7, "cơ_bắp": 32.1, "cân_đối": null, "năng_lượng": 989, "tuổi_sinh_học": 53, "mỡ_nội_tạng": 5.5}`;
       try {
         const res = await fetch('/api/body-metrics/analyze-image', {
           method: 'POST',
@@ -1258,6 +1251,7 @@ Lưu ý quan trọng:
           const form = document.getElementById('metricsForm');
           if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
             const text = result.candidates[0].content.parts[0].text;
+            console.log('AI result:', text);
             const match = text.match(/```json\s*([\s\S]*?)```/);
             if (match) {
               try {
@@ -1266,6 +1260,7 @@ Lưu ý quan trọng:
                   .replace(/,([\s\n\r]*[}\]])/g, '$1')
                   .trim();
                 const metricsObj = JSON.parse(jsonStr);
+                console.log('metricsObj:', metricsObj);
                 const latest = metricsObj.measurements?.[0]
                   || metricsObj["thông_tin_sức_khỏe"]?.[0]
                   || metricsObj["chỉ_số_sức_khỏe"]?.[0]
@@ -1287,6 +1282,15 @@ Lưu ý quan trọng:
                 if (form && form.nangLuong && typeof metricsObj["năng_lượng"] === 'number') form.nangLuong.value = metricsObj["năng_lượng"];
                 if (form && form.tuoiSinhHoc && typeof metricsObj["tuổi_sinh_học"] === 'number') form.tuoiSinhHoc.value = metricsObj["tuổi_sinh_học"];
                 if (form && form.moNoiTang && typeof metricsObj["mỡ_nội_tạng"] === 'number') form.moNoiTang.value = metricsObj["mỡ_nội_tạng"];
+                // Bổ sung cho tỉ lệ mỡ và cân đối
+                if (form && form.tiLeMoCoThe && typeof metricsObj["tỉ_lệ_mỡ_cơ_thể"] === 'number') form.tiLeMoCoThe.value = metricsObj["tỉ_lệ_mỡ_cơ_thể"];
+                if (form && form.chiSoCanDoi) {
+                  if (typeof metricsObj["cân_đối"] === 'number') {
+                    form.chiSoCanDoi.value = metricsObj["cân_đối"];
+                  } else {
+                    form.chiSoCanDoi.value = 0;
+                  }
+                }
               } catch (e) {
                 if (analyzeResult) analyzeResult.innerHTML = '<span style="color:#d32f2f">Lỗi đọc dữ liệu chỉ số từ AI!</span>';
               }
@@ -1901,7 +1905,7 @@ function openAccountModal() {
       const gender = user.gender || 'Nam';
       // Hiển thị avatar hiện tại trong modal bằng setSafeAvatar
       const currentAvatar = document.getElementById('accountCurrentAvatar').querySelector('img');
-      setSafeAvatar(currentAvatar, user.avatar, gender);
+      if (currentAvatar) setSafeAvatar(currentAvatar, user.avatar, gender);
       // Reset preview avatar mới
       document.getElementById('accountAvatarPreview').innerHTML = '';
       ensureDeleteAvatarBtn();
