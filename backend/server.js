@@ -385,6 +385,16 @@ app.put('/admin/users/:userId/metrics/:metricId/note', auth, async (req, res) =>
   if (!metric) return res.status(404).json({ message: 'Không tìm thấy chỉ số.' });
   res.json({ message: 'Đã cập nhật ghi chú.', metric });
 });
+app.delete('/admin/users/:userId/metrics/:metricId', auth, adminOnly, async (req, res) => {
+  try {
+    const { userId, metricId } = req.params;
+    const metric = await BodyMetric.findOneAndDelete({ _id: metricId, userId });
+    if (!metric) return res.status(404).json({ message: 'Không tìm thấy chỉ số.' });
+    res.json({ message: 'Đã xóa chỉ số thành công.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ khi xóa chỉ số.' });
+  }
+});
 
 // API quản trị viên: quản lý group
 app.get('/admin/groups', auth, adminOnly, async (req, res) => {

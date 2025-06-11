@@ -198,7 +198,7 @@ function setupChartSection() {
     { key: 'tiLeMoCoThe', label: 'Tỉ lệ mỡ (%)', checked: true },
     { key: 'luongKhoangChat', label: 'Khoáng chất', checked: false },
     { key: 'chiSoNuoc', label: 'Nước (%)', checked: true },
-    { key: 'luongCoBap', label: 'Cơ bắp (%)', checked: true },
+    { key: 'luongCoBap', label: 'Cơ bắp (kg)', checked: true },
     { key: 'chiSoCanDoi', label: 'Cân đối', checked: false },
     { key: 'nangLuong', label: 'Năng lượng (kcal)', checked: false },
     { key: 'tuoiSinhHoc', label: 'Tuổi sinh học', checked: true },
@@ -363,7 +363,7 @@ async function fetchLatestMetrics() {
       <tr><td>🏷️ Tỉ lệ mỡ (%)</td><td>${latest.tiLeMoCoThe ?? '-'}</td><td>${compareValue('tiLeMoCoThe', ' %', 1)}</td></tr>
       <tr><td>🦴 Khoáng chất</td><td>${latest.luongKhoangChat ?? '-'}</td><td>${compareValue('luongKhoangChat', '', 1)}</td></tr>
       <tr><td>💧 Nước (%)</td><td>${latest.chiSoNuoc ?? '-'}</td><td>${compareValue('chiSoNuoc', ' %', 1)}</td></tr>
-      <tr><td>💪 Cơ bắp (%)</td><td>${(weight && muscleKg) ? (muscleKg / weight * 100).toFixed(1) : '-'}</td><td>${compareValue('luongCoBap', ' %', 1)}</td></tr>
+      <tr><td>💪 Cơ bắp (kg)</td><td>${muscleKg ?? '-'}</td><td>${compareValue('luongCoBap', ' kg', 1)}</td></tr>
       <tr><td>🧍‍♀️ Cân đối</td><td>${latest.chiSoCanDoi ?? '-'}</td><td>${compareValue('chiSoCanDoi', '', 1)}</td></tr>
       <tr><td>🔥 Năng lượng (kcal)</td><td>${latest.nangLuong ?? '-'}</td><td>${compareValue('nangLuong', ' kcal', 0)}</td></tr>
       <tr><td>⏳ Tuổi sinh học</td><td>${latest.tuoiSinhHoc ?? '-'}</td><td>${compareValue('tuoiSinhHoc', '', 0)}</td></tr>
@@ -893,6 +893,9 @@ function openResetModal(id) {
 }
 
 async function openMetricsModal(id) {
+  // Xử lý triệt để: xóa mọi backdrop còn sót lại trước khi show modal mới
+  document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+  document.body.classList.remove('modal-open');
   const modal = new bootstrap.Modal(document.getElementById('metricsModal'));
   const body = document.getElementById('metricsModalBody');
   body.innerHTML = 'Đang tải...';
@@ -900,6 +903,8 @@ async function openMetricsModal(id) {
   const metrics = await res.json();
   if (!metrics.length) {
     body.innerHTML = '<div>Chưa có dữ liệu chỉ số.</div>';
+    modal.show(); // Luôn hiển thị modal kể cả khi không có chỉ số
+    return;
   } else {
     let html = `<table class="table table-bordered table-hover align-middle bg-white shadow-sm"><thead><tr><th>Ngày</th><th>Cân nặng</th><th>Tỉ lệ mỡ</th><th>Khoáng chất</th><th>Nước</th><th>Cơ bắp</th><th>Cân đối</th><th>Năng lượng</th><th>Tuổi sinh học</th><th>Mỡ nội tạng</th><th>Ghi chú</th><th></th></tr></thead><tbody>`;
     for (const m of metrics) {
@@ -915,8 +920,11 @@ async function openMetricsModal(id) {
         <td>${m.nangLuong ?? ''}</td>
         <td>${m.tuoiSinhHoc ?? ''}</td>
         <td>${m.moNoiTang ?? ''}</td>
-        <td>${hasNote ? `<span title="${m.note.replace(/\"/g, '&quot;')}">📝</span>` : ''}</td>
-        <td><button class="btn btn-outline-secondary btn-sm note-btn" data-metric="${m._id}" data-user="${id}" title="Ghi chú"><i class="bi bi-journal-text"></i></button></td>
+        <td>${hasNote ? `<span title=\"${m.note.replace(/\"/g, '&quot;')}\">📝</span>` : ''}</td>
+        <td>
+          <button class="btn btn-outline-secondary btn-sm note-btn" data-metric="${m._id}" data-user="${id}" title="Ghi chú"><i class="bi bi-journal-text"></i></button>
+          <button class="btn btn-outline-danger btn-sm delete-metric-btn" data-metric="${m._id}" data-user="${id}" title="Xóa chỉ số"><i class="bi bi-trash"></i></button>
+        </td>
       </tr>`;
     }
     html += '</tbody></table>';
@@ -932,8 +940,22 @@ async function openMetricsModal(id) {
         noteModal.show();
       };
     });
+    // Sau khi render bảng, gán sự kiện cho nút xóa
+    body.querySelectorAll('.delete-metric-btn').forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Bạn có chắc chắn muốn xóa chỉ số này?')) return;
+        const metricId = btn.getAttribute('data-metric');
+        const memberId = btn.getAttribute('data-user');
+        const adminId = localStorage.getItem('userId');
+        await fetch(`/admin/users/${memberId}/metrics/${metricId}`, {
+          method: 'DELETE',
+          headers: { 'x-user-id': adminId }
+        });
+        openMetricsModal(memberId);
+      };
+    });
+    modal.show(); // Đảm bảo luôn hiển thị modal
   }
-  modal.show();
 }
 
 // Lưu ghi chú
@@ -952,13 +974,17 @@ if (saveNoteBtn) {
     const noteModal = bootstrap.Modal.getInstance(noteModalEl);
     if (noteModal) noteModal.hide();
     // Đợi modal ghi chú đóng xong rồi mới mở lại modal chỉ số
-    noteModalEl.addEventListener('hidden.bs.modal', function handler() {
+    const handler = function() {
       // Xử lý triệt để: xóa mọi backdrop còn sót lại
       document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
       document.body.classList.remove('modal-open');
-      openMetricsModal(currentNoteUserId);
+      // Đảm bảo focus không bị giữ lại trên nút đóng modal cũ
+      setTimeout(() => {
+        openMetricsModal(currentNoteUserId);
+      }, 10);
       noteModalEl.removeEventListener('hidden.bs.modal', handler);
-    });
+    };
+    noteModalEl.addEventListener('hidden.bs.modal', handler);
   };
 }
 
