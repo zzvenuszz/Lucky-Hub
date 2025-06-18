@@ -560,22 +560,45 @@ body, html {
     grid-column: 1;
     width: 100%;
   }
-  #admin-user-panel, #admin-group-panel {
-    padding-left: 0 !important;
-    margin-left: 0 !important;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100vw;
-    min-width: 320px;
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
+  #admin-user-panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 0 8px 0 !important;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
   .user-card-admin {
-    min-width: 260px;
-    max-width: 95vw;
+    max-width: 100vw;
+    width: 100vw;
+    min-width: 0;
     margin-left: 0 !important;
-    flex: 0 0 auto;
+    margin-right: 0 !important;
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-x: auto;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  #user-search-input {
+    width: 100%;
+    max-width: 98vw;
+    border-radius: 12px;
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+  .table-responsive {
+    padding: 0;
+    margin: 0;
+    width: 100vw;
+    max-width: 100vw;
+  }
+  .main-content {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    padding: 8px 0 0 0 !important;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 }
 

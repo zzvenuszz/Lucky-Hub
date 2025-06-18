@@ -668,9 +668,9 @@ async function renderUserTable() {
           <div class="mb-1"><b>Chiều cao:</b> ${u.height}</div>
           <div class="mb-1"><b>Ngày sinh:</b> ${u.birthday ? new Date(u.birthday).toLocaleDateString('vi-VN') : ''}</div>
           <div class="d-flex flex-wrap gap-2 mt-2">
-            <button class="btn btn-sm btn-primary me-1" data-id="${u._id}" data-action="edit" title="Sửa"><i class="bi bi-pencil"></i></button>
-            <button class="btn btn-sm btn-danger me-1" data-id="${u._id}" data-action="delete" title="Xóa"><i class="bi bi-trash"></i></button>
-            <button class="btn btn-sm btn-warning me-1" data-id="${u._id}" data-action="reset" title="Reset mật khẩu"><i class="bi bi-key"></i></button>
+            <button class="btn btn-sm btn-primary" data-id="${u._id}" data-action="edit" title="Sửa"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger" data-id="${u._id}" data-action="delete" title="Xóa"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-warning" data-id="${u._id}" data-action="reset" title="Reset mật khẩu"><i class="bi bi-key"></i></button>
             <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics" title="Chỉ số"><i class="bi bi-bar-chart"></i></button>
           </div>
         </div>`;
@@ -2081,4 +2081,66 @@ function setSafeAvatar(imgElement, avatar, gender) {
   } else {
     imgElement.src = fallback;
   }
+}
+
+// Xử lý tìm kiếm
+const searchInput = document.getElementById('user-search-input');
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    const keyword = this.value.trim().toLowerCase();
+    const normalize = str => str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    const filtered = users.filter(u => normalize(u.username).includes(normalize(keyword)) || normalize(u.fullname).includes(normalize(keyword)));
+    // Render lại danh sách
+    let html = '';
+    if (window.innerWidth < 700) {
+      html = '<div class="table-responsive">';
+      for (const u of filtered) {
+        html += `<div class="user-card-admin mb-3 p-3 bg-white rounded shadow-sm">
+          <div class="mb-1"><b>Tên đăng nhập:</b> ${u.username}</div>
+          <div class="mb-1"><b>Họ tên:</b> ${u.fullname}</div>
+          <div class="mb-1"><b>Nhóm:</b> ${u.group?.name || ''}</div>
+          <div class="mb-1"><b>Giới tính:</b> ${u.gender}</div>
+          <div class="mb-1"><b>Chiều cao:</b> ${u.height}</div>
+          <div class="mb-1"><b>Ngày sinh:</b> ${u.birthday ? new Date(u.birthday).toLocaleDateString('vi-VN') : ''}</div>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <button class="btn btn-sm btn-primary" data-id="${u._id}" data-action="edit" title="Sửa"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger" data-id="${u._id}" data-action="delete" title="Xóa"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-warning" data-id="${u._id}" data-action="reset" title="Reset mật khẩu"><i class="bi bi-key"></i></button>
+            <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics" title="Chỉ số"><i class="bi bi-bar-chart"></i></button>
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+      panel.innerHTML = html;
+    } else {
+      html = `<table class="table table-bordered table-hover align-middle bg-white shadow-sm"><thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Nhóm</th><th>Giới tính</th><th>Chiều cao</th><th>Ngày sinh</th><th>Thao tác</th></tr></thead><tbody>`;
+      for (const u of filtered) {
+        html += `<tr>
+          <td>${u.username}</td>
+          <td>${u.fullname}</td>
+          <td>${u.group?.name || ''}</td>
+          <td>${u.gender}</td>
+          <td>${u.height}</td>
+          <td>${u.birthday ? new Date(u.birthday).toLocaleDateString('vi-VN') : ''}</td>
+          <td>
+            <button class="btn btn-sm btn-primary me-1" data-id="${u._id}" data-action="edit" title="Sửa"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger me-1" data-id="${u._id}" data-action="delete" title="Xóa"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-warning me-1" data-id="${u._id}" data-action="reset" title="Reset mật khẩu"><i class="bi bi-key"></i></button>
+            <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics" title="Chỉ số"><i class="bi bi-bar-chart"></i></button>
+          </td>
+        </tr>`;
+      }
+      html += '</tbody></table>';
+      panel.innerHTML = html;
+    }
+    // Gán lại sự kiện cho các nút thao tác
+    panel.querySelectorAll('button[data-action]').forEach(btn => {
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      if (action === 'edit') btn.onclick = () => openUserModal(id, users, groups);
+      if (action === 'delete') btn.onclick = () => confirmDeleteUser(id);
+      if (action === 'reset') btn.onclick = () => openResetModal(id);
+      if (action === 'metrics') btn.onclick = () => openMetricsModal(id);
+    });
+  });
 }
