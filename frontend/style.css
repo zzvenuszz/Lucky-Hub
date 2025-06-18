@@ -526,7 +526,15 @@ body, html {
     padding: 18px 2vw 18px 2vw;
   }
   .sidebar-topbar {
-    display: flex !important;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    z-index: 1050;
+    box-shadow: 0 2px 8px #b6e2c6;
+  }
+  .main-content {
+    padding-top: 64px !important;
   }
   .sidebar {
     display: none !important;
