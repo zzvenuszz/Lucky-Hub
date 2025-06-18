@@ -560,6 +560,23 @@ body, html {
     grid-column: 1;
     width: 100%;
   }
+  #admin-user-panel, #admin-group-panel {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100vw;
+    min-width: 320px;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+  .user-card-admin {
+    min-width: 260px;
+    max-width: 95vw;
+    margin-left: 0 !important;
+    flex: 0 0 auto;
+  }
 }
 
 /* Upload ảnh đẹp */
@@ -1047,5 +1064,21 @@ body, html {
   #btn-account-mobile:active, #btn-account-mobile.active {
     background: #43B02A;
     color: #fff;
+  }
+} 
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 700px) {
+  .table-responsive {
+    max-width: 100vw;
+    margin: 0;
+    padding: 0;
+  }
+  .table-responsive table {
+    min-width: 700px;
   }
 } 

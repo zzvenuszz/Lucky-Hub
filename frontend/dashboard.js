@@ -195,14 +195,14 @@ function renderDashboard() {
 function setupChartSection() {
   const metricsList = [
     { key: 'canNang', label: 'Cân nặng (kg)', checked: true },
-    { key: 'tiLeMoCoThe', label: 'Tỉ lệ mỡ (%)', checked: true },
+    { key: 'tiLeMoCoThe', label: 'Tỉ lệ mỡ (%)', checked: false },
     { key: 'luongKhoangChat', label: 'Khoáng chất', checked: false },
-    { key: 'chiSoNuoc', label: 'Nước (%)', checked: true },
-    { key: 'luongCoBap', label: 'Cơ bắp (kg)', checked: true },
+    { key: 'chiSoNuoc', label: 'Nước (%)', checked: false },
+    { key: 'luongCoBap', label: 'Cơ bắp (kg)', checked: false },
     { key: 'chiSoCanDoi', label: 'Cân đối', checked: false },
     { key: 'nangLuong', label: 'Năng lượng (kcal)', checked: false },
-    { key: 'tuoiSinhHoc', label: 'Tuổi sinh học', checked: true },
-    { key: 'moNoiTang', label: 'Mỡ nội tạng', checked: true }
+    { key: 'tuoiSinhHoc', label: 'Tuổi sinh học', checked: false },
+    { key: 'moNoiTang', label: 'Mỡ nội tạng', checked: false }
   ];
   const checkboxesDiv = document.getElementById('metric-checkboxes');
   checkboxesDiv.innerHTML = metricsList.map(m => `<label style="margin-right:12px"><input type="checkbox" class="metric-cb" value="${m.key}"${m.checked ? ' checked' : ''}> ${m.label}</label>`).join('');
@@ -668,10 +668,10 @@ async function renderUserTable() {
           <div class="mb-1"><b>Chiều cao:</b> ${u.height}</div>
           <div class="mb-1"><b>Ngày sinh:</b> ${u.birthday ? new Date(u.birthday).toLocaleDateString('vi-VN') : ''}</div>
           <div class="d-flex flex-wrap gap-2 mt-2">
-            <button class="btn btn-sm btn-primary" data-id="${u._id}" data-action="edit">Sửa</button>
-            <button class="btn btn-sm btn-danger" data-id="${u._id}" data-action="delete">Xóa</button>
-            <button class="btn btn-sm btn-warning" data-id="${u._id}" data-action="reset">Reset mật khẩu</button>
-            <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics">Chỉ số</button>
+            <button class="btn btn-sm btn-primary me-1" data-id="${u._id}" data-action="edit" title="Sửa"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger me-1" data-id="${u._id}" data-action="delete" title="Xóa"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-warning me-1" data-id="${u._id}" data-action="reset" title="Reset mật khẩu"><i class="bi bi-key"></i></button>
+            <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics" title="Chỉ số"><i class="bi bi-bar-chart"></i></button>
           </div>
         </div>`;
       }
@@ -697,10 +697,10 @@ async function renderUserTable() {
           <td>${u.height}</td>
           <td>${u.birthday ? new Date(u.birthday).toLocaleDateString('vi-VN') : ''}</td>
           <td>
-            <button class="btn btn-sm btn-primary me-1" data-id="${u._id}" data-action="edit">Sửa</button>
-            <button class="btn btn-sm btn-danger me-1" data-id="${u._id}" data-action="delete">Xóa</button>
-            <button class="btn btn-sm btn-warning me-1" data-id="${u._id}" data-action="reset">Reset mật khẩu</button>
-            <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics">Chỉ số</button>
+            <button class="btn btn-sm btn-primary me-1" data-id="${u._id}" data-action="edit" title="Sửa"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-danger me-1" data-id="${u._id}" data-action="delete" title="Xóa"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-sm btn-warning me-1" data-id="${u._id}" data-action="reset" title="Reset mật khẩu"><i class="bi bi-key"></i></button>
+            <button class="btn btn-sm btn-info" data-id="${u._id}" data-action="metrics" title="Chỉ số"><i class="bi bi-bar-chart"></i></button>
           </td>
         </tr>`;
       }
@@ -906,7 +906,7 @@ async function openMetricsModal(id) {
     modal.show(); // Luôn hiển thị modal kể cả khi không có chỉ số
     return;
   } else {
-    let html = `<table class="table table-bordered table-hover align-middle bg-white shadow-sm"><thead><tr><th>Ngày</th><th>Cân nặng</th><th>Tỉ lệ mỡ</th><th>Khoáng chất</th><th>Nước</th><th>Cơ bắp</th><th>Cân đối</th><th>Năng lượng</th><th>Tuổi sinh học</th><th>Mỡ nội tạng</th><th>Ghi chú</th><th></th></tr></thead><tbody>`;
+    let html = `<div class="table-responsive"><table class="table table-bordered table-hover align-middle bg-white shadow-sm"><thead><tr><th>Ngày</th><th>Cân nặng</th><th>Tỉ lệ mỡ</th><th>Khoáng chất</th><th>Nước</th><th>Cơ bắp</th><th>Cân đối</th><th>Năng lượng</th><th>Tuổi sinh học</th><th>Mỡ nội tạng</th><th>Ghi chú</th><th></th></tr></thead><tbody>`;
     for (const m of metrics) {
       const hasNote = m.note && m.note.trim() !== '';
       html += `<tr${hasNote ? ' style="background:#fffbe6"' : ''}>
@@ -927,7 +927,7 @@ async function openMetricsModal(id) {
         </td>
       </tr>`;
     }
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     body.innerHTML = html;
     // Gán sự kiện cho nút note
     body.querySelectorAll('.note-btn').forEach(btn => {
